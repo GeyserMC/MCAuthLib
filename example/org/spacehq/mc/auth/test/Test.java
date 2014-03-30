@@ -1,5 +1,8 @@
 package org.spacehq.mc.auth.test;
 
+import org.spacehq.mc.auth.GameProfile;
+import org.spacehq.mc.auth.GameProfileRepository;
+import org.spacehq.mc.auth.ProfileLookupCallback;
 import org.spacehq.mc.auth.UserAuthentication;
 import org.spacehq.mc.auth.exception.AuthenticationException;
 
@@ -12,6 +15,27 @@ public class Test {
 	private static final String ACCESS_TOKEN = null;
 
 	public static void main(String[] args) {
+		profileLookup();
+		auth();
+	}
+
+	private static void profileLookup() {
+		GameProfileRepository repository = new GameProfileRepository();
+		repository.findProfilesByNames(new String[] { USERNAME }, new ProfileLookupCallback() {
+			@Override
+			public void onProfileLookupSucceeded(GameProfile profile) {
+				System.out.println("Found profile: " + profile);
+			}
+
+			@Override
+			public void onProfileLookupFailed(GameProfile profile, Exception e) {
+				System.out.println("Lookup for profile " + profile.getName() + " failed!");
+				e.printStackTrace();
+			}
+		});
+	}
+
+	private static void auth() {
 		String clientToken = UUID.randomUUID().toString();
 		UserAuthentication auth = new UserAuthentication(clientToken);
 		auth.setUsername(USERNAME);

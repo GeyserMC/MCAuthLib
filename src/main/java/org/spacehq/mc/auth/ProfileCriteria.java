@@ -3,6 +3,7 @@ package org.spacehq.mc.auth;
 public class ProfileCriteria {
 
 	private final String name;
+	private final String agent = "minecraft";
 
 	public ProfileCriteria(String name) {
 		this.name = name;
