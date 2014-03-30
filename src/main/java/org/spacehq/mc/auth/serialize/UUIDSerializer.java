@@ -18,10 +18,18 @@ public class UUIDSerializer extends TypeAdapter<UUID> {
 	}
 
 	public static String fromUUID(UUID value) {
+		if(value == null) {
+			return "";
+		}
+
 		return value.toString().replace("-", "");
 	}
 
 	public static UUID fromString(String input) {
+		if(input == null || input.equals("")) {
+			return null;
+		}
+
 		return UUID.fromString(input.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5"));
 	}
 

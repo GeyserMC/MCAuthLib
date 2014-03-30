@@ -44,7 +44,7 @@ public class SessionService {
 			X509EncodedKeySpec spec = new X509EncodedKeySpec(IOUtils.toByteArray(SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der")));
 			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 			SIGNATURE_KEY = keyFactory.generatePublic(spec);
-		} catch(Exception var4) {
+		} catch(Exception e) {
 			throw new ExceptionInInitializerError("Missing/invalid yggdrasil public key.");
 		}
 	}
