@@ -8,8 +8,10 @@ import org.spacehq.mc.auth.exception.AuthenticationUnavailableException;
 import org.spacehq.mc.auth.exception.InvalidCredentialsException;
 import org.spacehq.mc.auth.exception.UserMigratedException;
 import org.spacehq.mc.auth.properties.PropertyMap;
+import org.spacehq.mc.auth.response.ProfileSearchResultsResponse;
 import org.spacehq.mc.auth.response.Response;
 import org.spacehq.mc.auth.serialize.GameProfileSerializer;
+import org.spacehq.mc.auth.serialize.ProfileSearchResultsSerializer;
 import org.spacehq.mc.auth.serialize.PropertyMapSerializer;
 import org.spacehq.mc.auth.serialize.UUIDSerializer;
 
@@ -35,6 +37,7 @@ public class URLUtils {
 		builder.registerTypeAdapter(GameProfile.class, new GameProfileSerializer());
 		builder.registerTypeAdapter(PropertyMap.class, new PropertyMapSerializer());
 		builder.registerTypeAdapter(UUID.class, new UUIDSerializer());
+		builder.registerTypeAdapter(ProfileSearchResultsResponse.class, new ProfileSearchResultsSerializer());
 		GSON = builder.create();
 	}
 

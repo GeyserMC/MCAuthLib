@@ -11,6 +11,7 @@ import java.util.UUID;
 public class Test {
 
 	private static final String USERNAME = "Username";
+	private static final String EMAIL = "Username@mail.com";
 	private static final String PASSWORD = "Password";
 	private static final String ACCESS_TOKEN = null;
 
@@ -38,7 +39,7 @@ public class Test {
 	private static void auth() {
 		String clientToken = UUID.randomUUID().toString();
 		UserAuthentication auth = new UserAuthentication(clientToken);
-		auth.setUsername(USERNAME);
+		auth.setUsername(EMAIL);
 		if(ACCESS_TOKEN != null) {
 			auth.setAccessToken(ACCESS_TOKEN);
 		} else {
