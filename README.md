@@ -19,7 +19,8 @@ See example/org/spacehq/mc/auth/test/Test.java
 --------
 
 MCAuthLib uses Maven to manage dependencies. Simply run 'mvn clean install' in the source's directory.
-You can also download a build <b>[here](http://build.spacehq.org/browse/MCAUTHLIB-MAIN)</b>.
+Snapshots (if any exist) can be downloaded <b>[here](http://repo.spacehq.org/content/repositories/snapshots/org/spacehq/mcauthlib)</b>.
+Releases (if any exist) can be downloaded <b>[here](http://repo.spacehq.org/content/repositories/release/org/spacehq/mcauthlib)</b>.
 
 
 <b>License</b>
