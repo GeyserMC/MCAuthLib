@@ -6,6 +6,7 @@ import org.spacehq.mc.auth.ProfileLookupCallback;
 import org.spacehq.mc.auth.UserAuthentication;
 import org.spacehq.mc.auth.exception.AuthenticationException;
 
+import java.net.Proxy;
 import java.util.UUID;
 
 public class Test {
@@ -15,13 +16,15 @@ public class Test {
 	private static final String PASSWORD = "Password";
 	private static final String ACCESS_TOKEN = null;
 
+	private static final Proxy PROXY = Proxy.NO_PROXY;
+
 	public static void main(String[] args) {
 		profileLookup();
 		auth();
 	}
 
 	private static void profileLookup() {
-		GameProfileRepository repository = new GameProfileRepository();
+		GameProfileRepository repository = new GameProfileRepository(PROXY);
 		repository.findProfilesByNames(new String[] { USERNAME }, new ProfileLookupCallback() {
 			@Override
 			public void onProfileLookupSucceeded(GameProfile profile) {
@@ -38,7 +41,7 @@ public class Test {
 
 	private static void auth() {
 		String clientToken = UUID.randomUUID().toString();
-		UserAuthentication auth = new UserAuthentication(clientToken);
+		UserAuthentication auth = new UserAuthentication(clientToken, PROXY);
 		auth.setUsername(EMAIL);
 		if(ACCESS_TOKEN != null) {
 			auth.setAccessToken(ACCESS_TOKEN);
