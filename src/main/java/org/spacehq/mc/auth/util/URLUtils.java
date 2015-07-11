@@ -21,6 +21,7 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.Proxy;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Iterator;
@@ -87,10 +88,10 @@ public class URLUtils {
 		}
 	}
 
-	public static <T extends Response> T makeRequest(URL url, Object input, Class<T> clazz) throws AuthenticationException {
+	public static <T extends Response> T makeRequest(Proxy proxy, URL url, Object input, Class<T> clazz) throws AuthenticationException {
 		T result = null;
 		try {
-			String jsonString = input == null ? performGetRequest(url) : performPostRequest(url, GSON.toJson(input), "application/json");
+			String jsonString = input == null ? performGetRequest(proxy, url) : performPostRequest(proxy, url, GSON.toJson(input), "application/json");
 			result = GSON.fromJson(jsonString, clazz);
 		} catch(Exception e) {
 			throw new AuthenticationUnavailableException("Could not make request to auth server.", e);
@@ -111,19 +112,27 @@ public class URLUtils {
 		}
 	}
 
-	private static HttpURLConnection createUrlConnection(URL url) throws IOException {
+	private static HttpURLConnection createUrlConnection(Proxy proxy, URL url) throws IOException {
+		if(proxy == null) {
+			throw new IllegalArgumentException("Proxy cannot be null.");
+		}
+
 		if(url == null) {
 			throw new IllegalArgumentException("URL cannot be null.");
 		}
 
-		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection(proxy);
 		connection.setConnectTimeout(15000);
 		connection.setReadTimeout(15000);
 		connection.setUseCaches(false);
 		return connection;
 	}
 
-	private static String performPostRequest(URL url, String post, String type) throws IOException {
+	private static String performPostRequest(Proxy proxy, URL url, String post, String type) throws IOException {
+		if(proxy == null) {
+			throw new IllegalArgumentException("Proxy cannot be null.");
+		}
+
 		if(url == null) {
 			throw new IllegalArgumentException("URL cannot be null.");
 		}
@@ -136,10 +145,10 @@ public class URLUtils {
 			throw new IllegalArgumentException("Type cannot be null.");
 		}
 
-		HttpURLConnection connection = createUrlConnection(url);
+		HttpURLConnection connection = createUrlConnection(proxy, url);
 		byte[] bytes = post.getBytes("UTF-8");
 		connection.setRequestProperty("Content-Type", type + "; charset=utf-8");
-		connection.setRequestProperty("Content-Length", "" + bytes.length);
+		connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
 		connection.setDoOutput(true);
 		OutputStream outputStream = null;
 		try {
@@ -166,12 +175,16 @@ public class URLUtils {
 		}
 	}
 
-	private static String performGetRequest(URL url) throws IOException {
+	private static String performGetRequest(Proxy proxy, URL url) throws IOException {
+		if(proxy == null) {
+			throw new IllegalArgumentException("Proxy cannot be null.");
+		}
+
 		if(url == null) {
 			throw new IllegalArgumentException("URL cannot be null.");
 		}
 
-		HttpURLConnection connection = createUrlConnection(url);
+		HttpURLConnection connection = createUrlConnection(proxy, url);
 		InputStream inputStream = null;
 		try {
 			inputStream = connection.getInputStream();

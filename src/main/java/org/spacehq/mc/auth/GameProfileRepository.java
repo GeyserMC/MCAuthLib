@@ -5,6 +5,8 @@ import org.spacehq.mc.auth.exception.ProfileNotFoundException;
 import org.spacehq.mc.auth.response.ProfileSearchResultsResponse;
 import org.spacehq.mc.auth.util.URLUtils;
 
+import java.net.Proxy;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -14,11 +16,25 @@ import java.util.UUID;
 public class GameProfileRepository {
 
 	private static final String BASE_URL = "https://api.mojang.com/";
-	private static final String SEARCH_URL = BASE_URL + "profiles/minecraft";
+	private static final URL SEARCH_URL = URLUtils.constantURL(BASE_URL + "profiles/minecraft");
 	private static final int MAX_FAIL_COUNT = 3;
 	private static final int DELAY_BETWEEN_PAGES = 100;
 	private static final int DELAY_BETWEEN_FAILURES = 750;
 	private static final int PROFILES_PER_REQUEST = 100;
+
+	private Proxy proxy;
+
+	public GameProfileRepository() {
+		this(Proxy.NO_PROXY);
+	}
+
+	public GameProfileRepository(Proxy proxy) {
+		if(proxy == null) {
+			throw new IllegalArgumentException("Proxy cannot be null.");
+		}
+
+		this.proxy = proxy;
+	}
 
 	public void findProfilesByNames(String[] names, ProfileLookupCallback callback) {
 		Set<String> criteria = new HashSet<String>();
@@ -35,7 +51,7 @@ public class GameProfileRepository {
 			while(failCount < MAX_FAIL_COUNT && tryAgain) {
 				tryAgain = false;
 				try {
-					ProfileSearchResultsResponse response = URLUtils.makeRequest(URLUtils.constantURL(SEARCH_URL), request, ProfileSearchResultsResponse.class);
+					ProfileSearchResultsResponse response = URLUtils.makeRequest(this.proxy, SEARCH_URL, request, ProfileSearchResultsResponse.class);
 					failCount = 0;
 					error = null;
 					Set<String> missing = new HashSet<String>(request);

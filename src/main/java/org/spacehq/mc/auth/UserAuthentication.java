@@ -13,6 +13,7 @@ import org.spacehq.mc.auth.response.User;
 import org.spacehq.mc.auth.serialize.UUIDSerializer;
 import org.spacehq.mc.auth.util.URLUtils;
 
+import java.net.Proxy;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ public class UserAuthentication {
 	private static final String STORAGE_KEY_ACCESS_TOKEN = "accessToken";
 
 	private String clientToken;
+	private Proxy proxy;
 	private PropertyMap userProperties = new PropertyMap();
 	private String userId;
 	private String username;
@@ -45,15 +47,28 @@ public class UserAuthentication {
 	private UserType userType;
 
 	public UserAuthentication(String clientToken) {
+		this(clientToken, Proxy.NO_PROXY);
+	}
+
+	public UserAuthentication(String clientToken, Proxy proxy) {
 		if(clientToken == null) {
 			throw new IllegalArgumentException("ClientToken cannot be null.");
 		}
 
+		if(proxy == null) {
+			throw new IllegalArgumentException("Proxy cannot be null.");
+		}
+
 		this.clientToken = clientToken;
+		this.proxy = proxy;
 	}
 
 	public String getClientToken() {
 		return this.clientToken;
+	}
+
+	public Proxy getProxy() {
+		return this.proxy;
 	}
 
 	public String getUserID() {
@@ -240,7 +255,7 @@ public class UserAuthentication {
 			throw new InvalidCredentialsException("Invalid password");
 		} else {
 			AuthenticationRequest request = new AuthenticationRequest(this, this.username, this.password);
-			AuthenticationResponse response = URLUtils.makeRequest(ROUTE_AUTHENTICATE, request, AuthenticationResponse.class);
+			AuthenticationResponse response = URLUtils.makeRequest(this.proxy, ROUTE_AUTHENTICATE, request, AuthenticationResponse.class);
 			if(!response.getClientToken().equals(this.getClientToken())) {
 				throw new AuthenticationException("Server requested we change our client token. Don't know how to handle this!");
 			} else {
@@ -278,7 +293,7 @@ public class UserAuthentication {
 			throw new InvalidCredentialsException("Invalid access token");
 		} else {
 			RefreshRequest request = new RefreshRequest(this);
-			RefreshResponse response = URLUtils.makeRequest(ROUTE_REFRESH, request, RefreshResponse.class);
+			RefreshResponse response = URLUtils.makeRequest(this.proxy, ROUTE_REFRESH, request, RefreshResponse.class);
 			if(!response.getClientToken().equals(this.getClientToken())) {
 				throw new AuthenticationException("Server requested we change our client token. Don't know how to handle this!");
 			} else {
@@ -321,7 +336,7 @@ public class UserAuthentication {
 			throw new AuthenticationException("Cannot change game profile. You must log out and back in.");
 		} else if(profile != null && this.profiles.contains(profile)) {
 			RefreshRequest request = new RefreshRequest(this, profile);
-			RefreshResponse response = URLUtils.makeRequest(ROUTE_REFRESH, request, RefreshResponse.class);
+			RefreshResponse response = URLUtils.makeRequest(this.proxy, ROUTE_REFRESH, request, RefreshResponse.class);
 			if(!response.getClientToken().equals(this.getClientToken())) {
 				throw new AuthenticationException("Server requested we change our client token. Don't know how to handle this!");
 			} else {

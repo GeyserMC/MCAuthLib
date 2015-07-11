@@ -20,6 +20,7 @@ import org.spacehq.mc.auth.util.Base64;
 import org.spacehq.mc.auth.util.IOUtils;
 import org.spacehq.mc.auth.util.URLUtils;
 
+import java.net.Proxy;
 import java.net.URL;
 import java.security.KeyFactory;
 import java.security.PublicKey;
@@ -49,9 +50,23 @@ public class SessionService {
 		}
 	}
 
+	private Proxy proxy;
+
+	public SessionService() {
+		this(Proxy.NO_PROXY);
+	}
+
+	public SessionService(Proxy proxy) {
+		if(proxy == null) {
+			throw new IllegalArgumentException("Proxy cannot be null.");
+		}
+
+		this.proxy = proxy;
+	}
+
 	public void joinServer(GameProfile profile, String authenticationToken, String serverId) throws AuthenticationException {
 		JoinServerRequest request = new JoinServerRequest(authenticationToken, profile.getId(), serverId);
-		URLUtils.makeRequest(JOIN_URL, request, Response.class);
+		URLUtils.makeRequest(this.proxy, JOIN_URL, request, Response.class);
 	}
 
 	public GameProfile hasJoinedServer(GameProfile user, String serverId) throws AuthenticationUnavailableException {
@@ -60,7 +75,7 @@ public class SessionService {
 		arguments.put("serverId", serverId);
 		URL url = URLUtils.concatenateURL(CHECK_URL, URLUtils.buildQuery(arguments));
 		try {
-			HasJoinedResponse response = URLUtils.makeRequest(url, null, HasJoinedResponse.class);
+			HasJoinedResponse response = URLUtils.makeRequest(this.proxy, url, null, HasJoinedResponse.class);
 			if(response != null && response.getId() != null) {
 				GameProfile result = new GameProfile(response.getId(), user.getName());
 				if(response.getProperties() != null) {
@@ -130,7 +145,7 @@ public class SessionService {
 
 		try {
 			URL url = URLUtils.constantURL("https://sessionserver.mojang.com/session/minecraft/profile/" + UUIDSerializer.fromUUID(profile.getId()));
-			MinecraftProfilePropertiesResponse response = URLUtils.makeRequest(url, null, MinecraftProfilePropertiesResponse.class);
+			MinecraftProfilePropertiesResponse response = URLUtils.makeRequest(this.proxy, url, null, MinecraftProfilePropertiesResponse.class);
 			if(response == null) {
 				throw new ProfileNotFoundException("Couldn't fetch profile properties for " + profile + " as the profile does not exist.");
 			}
