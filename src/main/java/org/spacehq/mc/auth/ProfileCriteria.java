@@ -2,34 +2,34 @@ package org.spacehq.mc.auth;
 
 public class ProfileCriteria {
 
-	private final String name;
-	private final String agent = "minecraft";
+    private final String name;
+    private final String agent = "minecraft";
 
-	public ProfileCriteria(String name) {
-		this.name = name;
-	}
+    public ProfileCriteria(String name) {
+        this.name = name;
+    }
 
-	public String getName() {
-		return this.name;
-	}
+    public String getName() {
+        return this.name;
+    }
 
-	public boolean equals(Object o) {
-		if(this == o) {
-			return true;
-		} else if(o != null && this.getClass() == o.getClass()) {
-			ProfileCriteria that = (ProfileCriteria) o;
-			return this.name.toLowerCase().equals(that.name.toLowerCase());
-		} else {
-			return false;
-		}
-	}
+    public boolean equals(Object o) {
+        if(this == o) {
+            return true;
+        } else if(o != null && this.getClass() == o.getClass()) {
+            ProfileCriteria that = (ProfileCriteria) o;
+            return this.name.toLowerCase().equals(that.name.toLowerCase());
+        } else {
+            return false;
+        }
+    }
 
-	public int hashCode() {
-		return 31 * this.name.toLowerCase().hashCode();
-	}
+    public int hashCode() {
+        return 31 * this.name.toLowerCase().hashCode();
+    }
 
-	public String toString() {
-		return "GameProfileRepository{name=" + this.name + "}";
-	}
+    public String toString() {
+        return "GameProfileRepository{name=" + this.name + "}";
+    }
 
 }

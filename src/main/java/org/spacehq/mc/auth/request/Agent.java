@@ -2,20 +2,20 @@ package org.spacehq.mc.auth.request;
 
 public class Agent {
 
-	private String name;
-	private int version;
+    private String name;
+    private int version;
 
-	public Agent(String name, int version) {
-		this.name = name;
-		this.version = version;
-	}
+    public Agent(String name, int version) {
+        this.name = name;
+        this.version = version;
+    }
 
-	public String getName() {
-		return this.name;
-	}
+    public String getName() {
+        return this.name;
+    }
 
-	public int getVersion() {
-		return this.version;
-	}
+    public int getVersion() {
+        return this.version;
+    }
 
 }

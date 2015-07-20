@@ -2,20 +2,20 @@ package org.spacehq.mc.auth.exception;
 
 public class AuthenticationUnavailableException extends AuthenticationException {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	public AuthenticationUnavailableException() {
-	}
+    public AuthenticationUnavailableException() {
+    }
 
-	public AuthenticationUnavailableException(String message) {
-		super(message);
-	}
+    public AuthenticationUnavailableException(String message) {
+        super(message);
+    }
 
-	public AuthenticationUnavailableException(String message, Throwable cause) {
-		super(message, cause);
-	}
+    public AuthenticationUnavailableException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-	public AuthenticationUnavailableException(Throwable cause) {
-		super(cause);
-	}
+    public AuthenticationUnavailableException(Throwable cause) {
+        super(cause);
+    }
 }

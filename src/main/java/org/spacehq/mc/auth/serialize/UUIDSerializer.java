@@ -9,28 +9,28 @@ import java.util.UUID;
 
 public class UUIDSerializer extends TypeAdapter<UUID> {
 
-	public void write(JsonWriter out, UUID value) throws IOException {
-		out.value(fromUUID(value));
-	}
+    public void write(JsonWriter out, UUID value) throws IOException {
+        out.value(fromUUID(value));
+    }
 
-	public UUID read(JsonReader in) throws IOException {
-		return fromString(in.nextString());
-	}
+    public UUID read(JsonReader in) throws IOException {
+        return fromString(in.nextString());
+    }
 
-	public static String fromUUID(UUID value) {
-		if(value == null) {
-			return "";
-		}
+    public static String fromUUID(UUID value) {
+        if(value == null) {
+            return "";
+        }
 
-		return value.toString().replace("-", "");
-	}
+        return value.toString().replace("-", "");
+    }
 
-	public static UUID fromString(String input) {
-		if(input == null || input.equals("")) {
-			return null;
-		}
+    public static UUID fromString(String input) {
+        if(input == null || input.equals("")) {
+            return null;
+        }
 
-		return UUID.fromString(input.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5"));
-	}
+        return UUID.fromString(input.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5"));
+    }
 
 }

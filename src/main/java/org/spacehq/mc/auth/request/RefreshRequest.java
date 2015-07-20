@@ -6,20 +6,20 @@ import org.spacehq.mc.auth.UserAuthentication;
 @SuppressWarnings("unused")
 public class RefreshRequest {
 
-	private String clientToken;
-	private String accessToken;
-	private GameProfile selectedProfile;
-	private boolean requestUser;
+    private String clientToken;
+    private String accessToken;
+    private GameProfile selectedProfile;
+    private boolean requestUser;
 
-	public RefreshRequest(UserAuthentication authService) {
-		this(authService, null);
-	}
+    public RefreshRequest(UserAuthentication authService) {
+        this(authService, null);
+    }
 
-	public RefreshRequest(UserAuthentication authService, GameProfile profile) {
-		this.requestUser = true;
-		this.clientToken = authService.getClientToken();
-		this.accessToken = authService.getAccessToken();
-		this.selectedProfile = profile;
-	}
+    public RefreshRequest(UserAuthentication authService, GameProfile profile) {
+        this.requestUser = true;
+        this.clientToken = authService.getClientToken();
+        this.accessToken = authService.getAccessToken();
+        this.selectedProfile = profile;
+    }
 
 }

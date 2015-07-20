@@ -4,15 +4,15 @@ import org.spacehq.mc.auth.properties.PropertyMap;
 
 public class User {
 
-	private String id;
-	private PropertyMap properties;
+    private String id;
+    private PropertyMap properties;
 
-	public String getId() {
-		return this.id;
-	}
+    public String getId() {
+        return this.id;
+    }
 
-	public PropertyMap getProperties() {
-		return this.properties;
-	}
+    public PropertyMap getProperties() {
+        return this.properties;
+    }
 
 }
