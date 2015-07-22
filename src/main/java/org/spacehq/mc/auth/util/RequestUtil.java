@@ -90,6 +90,7 @@ public class RequestUtil {
         }
 
         HttpURLConnection connection = createUrlConnection(proxy, url);
+        connection.setDoInput(true);
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new InputStreamReader(connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()));
@@ -131,6 +132,7 @@ public class RequestUtil {
         byte[] bytes = post.getBytes("UTF-8");
         connection.setRequestProperty("Content-Type", type + "; charset=utf-8");
         connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
+        connection.setDoInput(true);
         connection.setDoOutput(true);
         OutputStream out = null;
         try {
