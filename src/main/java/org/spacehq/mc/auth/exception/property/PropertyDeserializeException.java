@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.property;
 
+/**
+ * Thrown when an error occurs while deserializing a property.
+ */
 public class PropertyDeserializeException extends PropertyException {
-
     private static final long serialVersionUID = 1L;
 
     public PropertyDeserializeException() {
@@ -18,5 +20,4 @@ public class PropertyDeserializeException extends PropertyException {
     public PropertyDeserializeException(Throwable cause) {
         super(cause);
     }
-
 }

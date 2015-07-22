@@ -1,22 +1,22 @@
 package org.spacehq.mc.auth;
 
-import org.spacehq.mc.auth.exception.AuthenticationException;
-import org.spacehq.mc.auth.exception.ProfileNotFoundException;
-import org.spacehq.mc.auth.response.ProfileSearchResultsResponse;
-import org.spacehq.mc.auth.util.URLUtils;
+import org.spacehq.mc.auth.exception.authentication.AuthenticationException;
+import org.spacehq.mc.auth.exception.profile.ProfileNotFoundException;
+import org.spacehq.mc.auth.util.RequestUtil;
 
 import java.net.Proxy;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Repository for looking up profiles by name.
+ */
 public class GameProfileRepository {
-
-    private static final String BASE_URL = "https://api.mojang.com/";
-    private static final URL SEARCH_URL = URLUtils.constantURL(BASE_URL + "profiles/minecraft");
+    private static final String BASE_URL = "https://api.mojang.com/profiles/";
+    private static final String SEARCH_URL = BASE_URL + "minecraft";
     private static final int MAX_FAIL_COUNT = 3;
     private static final int DELAY_BETWEEN_PAGES = 100;
     private static final int DELAY_BETWEEN_FAILURES = 750;
@@ -24,10 +24,18 @@ public class GameProfileRepository {
 
     private Proxy proxy;
 
+    /**
+     * Creates a new GameProfileRepository instance.
+     */
     public GameProfileRepository() {
         this(Proxy.NO_PROXY);
     }
 
+    /**
+     * Creates a new GameProfileRepository instance.
+     *
+     * @param proxy Proxy to use when making HTTP requests.
+     */
     public GameProfileRepository(Proxy proxy) {
         if(proxy == null) {
             throw new IllegalArgumentException("Proxy cannot be null.");
@@ -36,55 +44,82 @@ public class GameProfileRepository {
         this.proxy = proxy;
     }
 
+    /**
+     * Locates profiles by their names.
+     *
+     * @param names    Names to look for.
+     * @param callback Callback to pass results to.
+     */
     public void findProfilesByNames(String[] names, ProfileLookupCallback callback) {
-        Set<String> criteria = new HashSet<String>();
+        this.findProfilesByNames(names, callback, false);
+    }
+
+    /**
+     * Locates profiles by their names.
+     *
+     * @param names    Names to look for.
+     * @param callback Callback to pass results to.
+     * @param async    Whether to perform requests asynchronously.
+     */
+    public void findProfilesByNames(final String[] names, final ProfileLookupCallback callback, final boolean async) {
+        final Set<String> criteria = new HashSet<String>();
         for(String name : names) {
             if(name != null && !name.isEmpty()) {
                 criteria.add(name.toLowerCase());
             }
         }
 
-        for(Set<String> request : partition(criteria, PROFILES_PER_REQUEST)) {
-            Exception error = null;
-            int failCount = 0;
-            boolean tryAgain = true;
-            while(failCount < MAX_FAIL_COUNT && tryAgain) {
-                tryAgain = false;
-                try {
-                    ProfileSearchResultsResponse response = URLUtils.makeRequest(this.proxy, SEARCH_URL, request, ProfileSearchResultsResponse.class);
-                    failCount = 0;
-                    error = null;
-                    Set<String> missing = new HashSet<String>(request);
-                    for(GameProfile profile : response.getProfiles()) {
-                        missing.remove(profile.getName().toLowerCase());
-                        callback.onProfileLookupSucceeded(profile);
-                    }
-
-                    for(String name : missing) {
-                        callback.onProfileLookupFailed(new GameProfile((UUID) null, name), new ProfileNotFoundException("Server could not find the requested profile."));
-                    }
-
-                    try {
-                        Thread.sleep(DELAY_BETWEEN_PAGES);
-                    } catch(InterruptedException ignored) {
-                    }
-                } catch(AuthenticationException e) {
-                    error = e;
-                    failCount++;
-                    if(failCount >= MAX_FAIL_COUNT) {
-                        for(String name : request) {
-                            callback.onProfileLookupFailed(new GameProfile((UUID) null, name), error);
-                        }
-                    } else {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                for(Set<String> request : partition(criteria, PROFILES_PER_REQUEST)) {
+                    Exception error = null;
+                    int failCount = 0;
+                    boolean tryAgain = true;
+                    while(failCount < MAX_FAIL_COUNT && tryAgain) {
+                        tryAgain = false;
                         try {
-                            Thread.sleep(DELAY_BETWEEN_FAILURES);
-                        } catch(InterruptedException ignored) {
-                        }
+                            GameProfile[] profiles = RequestUtil.makeRequest(proxy, SEARCH_URL, request, GameProfile[].class);
+                            failCount = 0;
+                            Set<String> missing = new HashSet<String>(request);
+                            for(GameProfile profile : profiles) {
+                                missing.remove(profile.getName().toLowerCase());
+                                callback.onProfileLookupSucceeded(profile);
+                            }
 
-                        tryAgain = true;
+                            for(String name : missing) {
+                                callback.onProfileLookupFailed(new GameProfile((UUID) null, name), new ProfileNotFoundException("Server could not find the requested profile."));
+                            }
+
+                            try {
+                                Thread.sleep(DELAY_BETWEEN_PAGES);
+                            } catch(InterruptedException ignored) {
+                            }
+                        } catch(AuthenticationException e) {
+                            error = e;
+                            failCount++;
+                            if(failCount >= MAX_FAIL_COUNT) {
+                                for(String name : request) {
+                                    callback.onProfileLookupFailed(new GameProfile((UUID) null, name), error);
+                                }
+                            } else {
+                                try {
+                                    Thread.sleep(DELAY_BETWEEN_FAILURES);
+                                } catch(InterruptedException ignored) {
+                                }
+
+                                tryAgain = true;
+                            }
+                        }
                     }
                 }
             }
+        };
+
+        if(async) {
+            new Thread(runnable, "ProfileLookupThread").start();
+        } else {
+            runnable.run();
         }
     }
 
@@ -98,5 +133,25 @@ public class GameProfileRepository {
         }
 
         return ret;
+    }
+
+    /**
+     * Callback for reporting profile lookup results.
+     */
+    public static interface ProfileLookupCallback {
+        /**
+         * Called when a profile lookup request succeeds.
+         *
+         * @param profile Profile resulting from the request.
+         */
+        public void onProfileLookupSucceeded(GameProfile profile);
+
+        /**
+         * Called when a profile lookup request fails.
+         *
+         * @param profile Profile that failed to be located.
+         * @param e       Exception causing the failure.
+         */
+        public void onProfileLookupFailed(GameProfile profile, Exception e);
     }
 }

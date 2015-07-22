@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.property;
 
+/**
+ * Thrown when a property-related error occurs.
+ */
 public class PropertyException extends Exception {
-
     private static final long serialVersionUID = 1L;
 
     public PropertyException() {
@@ -18,5 +20,4 @@ public class PropertyException extends Exception {
     public PropertyException(Throwable cause) {
         super(cause);
     }
-
 }

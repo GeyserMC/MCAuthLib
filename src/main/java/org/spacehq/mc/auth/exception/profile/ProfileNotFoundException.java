@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.profile;
 
+/**
+ * Thrown when a profile cannot be found.
+ */
 public class ProfileNotFoundException extends ProfileException {
-
     private static final long serialVersionUID = 1L;
 
     public ProfileNotFoundException() {

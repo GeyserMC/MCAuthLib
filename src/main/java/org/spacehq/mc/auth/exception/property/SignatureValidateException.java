@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.property;
 
+/**
+ * Thrown when an error occurs while validating a signature.
+ */
 public class SignatureValidateException extends PropertyException {
-
     private static final long serialVersionUID = 1L;
 
     public SignatureValidateException() {
@@ -18,5 +20,4 @@ public class SignatureValidateException extends PropertyException {
     public SignatureValidateException(Throwable cause) {
         super(cause);
     }
-
 }

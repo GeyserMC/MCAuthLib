@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.authentication;
 
+/**
+ * Thrown when using the username of an account that has been migrated to an email address.
+ */
 public class UserMigratedException extends InvalidCredentialsException {
-
     private static final long serialVersionUID = 1L;
 
     public UserMigratedException() {

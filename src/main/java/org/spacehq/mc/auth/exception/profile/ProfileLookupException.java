@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.profile;
 
+/**
+ * Thrown when an error occurs while looking up a profile.
+ */
 public class ProfileLookupException extends ProfileException {
-
     private static final long serialVersionUID = 1L;
 
     public ProfileLookupException() {
@@ -18,5 +20,4 @@ public class ProfileLookupException extends ProfileException {
     public ProfileLookupException(Throwable cause) {
         super(cause);
     }
-
 }

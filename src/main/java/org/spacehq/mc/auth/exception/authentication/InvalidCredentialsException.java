@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.authentication;
 
+/**
+ * Thrown when invalid credentials are provided.
+ */
 public class InvalidCredentialsException extends AuthenticationException {
-
     private static final long serialVersionUID = 1L;
 
     public InvalidCredentialsException() {

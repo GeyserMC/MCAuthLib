@@ -1,7 +1,9 @@
-package org.spacehq.mc.auth.exception;
+package org.spacehq.mc.auth.exception.property;
 
+/**
+ * Thrown when an error occurs while retrieving a profile texture.
+ */
 public class ProfileTextureException extends PropertyException {
-
     private static final long serialVersionUID = 1L;
 
     public ProfileTextureException() {
@@ -18,5 +20,4 @@ public class ProfileTextureException extends PropertyException {
     public ProfileTextureException(Throwable cause) {
         super(cause);
     }
-
 }
