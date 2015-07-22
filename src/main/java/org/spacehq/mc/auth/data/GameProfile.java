@@ -1,4 +1,4 @@
-package org.spacehq.mc.auth;
+package org.spacehq.mc.auth.data;
 
 import org.spacehq.mc.auth.exception.property.SignatureValidateException;
 import org.spacehq.mc.auth.util.Base64;

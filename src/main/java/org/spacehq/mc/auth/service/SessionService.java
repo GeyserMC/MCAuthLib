@@ -1,7 +1,8 @@
-package org.spacehq.mc.auth;
+package org.spacehq.mc.auth.service;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import org.spacehq.mc.auth.data.GameProfile;
 import org.spacehq.mc.auth.exception.request.RequestException;
 import org.spacehq.mc.auth.exception.profile.ProfileException;
 import org.spacehq.mc.auth.exception.profile.ProfileLookupException;
@@ -9,7 +10,7 @@ import org.spacehq.mc.auth.exception.profile.ProfileNotFoundException;
 import org.spacehq.mc.auth.exception.property.ProfileTextureException;
 import org.spacehq.mc.auth.exception.property.PropertyException;
 import org.spacehq.mc.auth.util.Base64;
-import org.spacehq.mc.auth.util.RequestUtil;
+import org.spacehq.mc.auth.util.HTTP;
 import org.spacehq.mc.auth.util.UUIDSerializer;
 
 import java.io.ByteArrayOutputStream;
@@ -100,7 +101,7 @@ public class SessionService {
      */
     public void joinServer(GameProfile profile, String authenticationToken, String serverId) throws RequestException {
         JoinServerRequest request = new JoinServerRequest(authenticationToken, profile.getId(), serverId);
-        RequestUtil.makeRequest(this.proxy, JOIN_URL, request, null);
+        HTTP.makeRequest(this.proxy, JOIN_URL, request, null);
     }
 
     /**
@@ -112,7 +113,7 @@ public class SessionService {
      * @throws RequestException If an error occurs while making the request.
      */
     public GameProfile getProfileByServer(String name, String serverId) throws RequestException {
-        HasJoinedResponse response = RequestUtil.makeRequest(this.proxy, HAS_JOINED_URL + "?username=" + name + "&serverId=" + serverId, null, HasJoinedResponse.class);
+        HasJoinedResponse response = HTTP.makeRequest(this.proxy, HAS_JOINED_URL + "?username=" + name + "&serverId=" + serverId, null, HasJoinedResponse.class);
         if(response != null && response.id != null) {
             GameProfile result = new GameProfile(response.id, name);
             if(response.properties != null) {
@@ -138,7 +139,7 @@ public class SessionService {
         }
 
         try {
-            MinecraftProfileResponse response = RequestUtil.makeRequest(this.proxy, PROFILE_URL + "/" + UUIDSerializer.fromUUID(profile.getId()) + "?unsigned=false", null, MinecraftProfileResponse.class);
+            MinecraftProfileResponse response = HTTP.makeRequest(this.proxy, PROFILE_URL + "/" + UUIDSerializer.fromUUID(profile.getId()) + "?unsigned=false", null, MinecraftProfileResponse.class);
             if(response == null) {
                 throw new ProfileNotFoundException("Couldn't fetch profile properties for " + profile + " as the profile does not exist.");
             }

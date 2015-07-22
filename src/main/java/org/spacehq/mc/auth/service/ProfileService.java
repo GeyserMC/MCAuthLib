@@ -1,8 +1,9 @@
-package org.spacehq.mc.auth;
+package org.spacehq.mc.auth.service;
 
+import org.spacehq.mc.auth.data.GameProfile;
 import org.spacehq.mc.auth.exception.request.RequestException;
 import org.spacehq.mc.auth.exception.profile.ProfileNotFoundException;
-import org.spacehq.mc.auth.util.RequestUtil;
+import org.spacehq.mc.auth.util.HTTP;
 
 import java.net.Proxy;
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ import java.util.UUID;
 /**
  * Repository for looking up profiles by name.
  */
-public class GameProfileRepository {
+public class ProfileService {
     private static final String BASE_URL = "https://api.mojang.com/profiles/";
     private static final String SEARCH_URL = BASE_URL + "minecraft";
 
@@ -26,18 +27,18 @@ public class GameProfileRepository {
     private Proxy proxy;
 
     /**
-     * Creates a new GameProfileRepository instance.
+     * Creates a new ProfileService instance.
      */
-    public GameProfileRepository() {
+    public ProfileService() {
         this(Proxy.NO_PROXY);
     }
 
     /**
-     * Creates a new GameProfileRepository instance.
+     * Creates a new ProfileService instance.
      *
      * @param proxy Proxy to use when making HTTP requests.
      */
-    public GameProfileRepository(Proxy proxy) {
+    public ProfileService(Proxy proxy) {
         if(proxy == null) {
             throw new IllegalArgumentException("Proxy cannot be null.");
         }
@@ -80,7 +81,7 @@ public class GameProfileRepository {
                     while(failCount < MAX_FAIL_COUNT && tryAgain) {
                         tryAgain = false;
                         try {
-                            GameProfile[] profiles = RequestUtil.makeRequest(proxy, SEARCH_URL, request, GameProfile[].class);
+                            GameProfile[] profiles = HTTP.makeRequest(proxy, SEARCH_URL, request, GameProfile[].class);
                             failCount = 0;
                             Set<String> missing = new HashSet<String>(request);
                             for(GameProfile profile : profiles) {

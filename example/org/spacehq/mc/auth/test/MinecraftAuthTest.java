@@ -1,9 +1,9 @@
 package org.spacehq.mc.auth.test;
 
-import org.spacehq.mc.auth.AuthenticationService;
-import org.spacehq.mc.auth.GameProfile;
-import org.spacehq.mc.auth.GameProfileRepository;
-import org.spacehq.mc.auth.SessionService;
+import org.spacehq.mc.auth.service.AuthenticationService;
+import org.spacehq.mc.auth.data.GameProfile;
+import org.spacehq.mc.auth.service.ProfileService;
+import org.spacehq.mc.auth.service.SessionService;
 import org.spacehq.mc.auth.exception.request.RequestException;
 
 import java.net.Proxy;
@@ -23,8 +23,8 @@ public class MinecraftAuthTest {
     }
 
     private static void profileLookup() {
-        GameProfileRepository repository = new GameProfileRepository(PROXY);
-        repository.findProfilesByName(new String[] { USERNAME }, new GameProfileRepository.ProfileLookupCallback() {
+        ProfileService repository = new ProfileService(PROXY);
+        repository.findProfilesByName(new String[] { USERNAME }, new ProfileService.ProfileLookupCallback() {
             @Override
             public void onProfileLookupSucceeded(GameProfile profile) {
                 System.out.println("Found profile: " + profile);

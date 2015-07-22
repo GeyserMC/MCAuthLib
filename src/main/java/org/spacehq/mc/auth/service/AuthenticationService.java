@@ -1,8 +1,9 @@
-package org.spacehq.mc.auth;
+package org.spacehq.mc.auth.service;
 
+import org.spacehq.mc.auth.data.GameProfile;
 import org.spacehq.mc.auth.exception.request.RequestException;
 import org.spacehq.mc.auth.exception.request.InvalidCredentialsException;
-import org.spacehq.mc.auth.util.RequestUtil;
+import org.spacehq.mc.auth.util.HTTP;
 
 import java.net.Proxy;
 import java.util.ArrayList;
@@ -229,7 +230,7 @@ public class AuthenticationService {
         }
 
         InvalidateRequest request = new InvalidateRequest(this.clientToken, this.accessToken);
-        RequestUtil.makeRequest(this.proxy, INVALIDATE_URL, request);
+        HTTP.makeRequest(this.proxy, INVALIDATE_URL, request);
 
         this.accessToken = null;
         this.loggedIn = false;
@@ -252,7 +253,7 @@ public class AuthenticationService {
             throw new RequestException("Cannot change game profile when it is already selected.");
         } else if(profile != null && this.profiles.contains(profile)) {
             RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, profile);
-            RefreshResponse response = RequestUtil.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
+            RefreshResponse response = HTTP.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
             if(response.clientToken.equals(this.clientToken)) {
                 this.accessToken = response.accessToken;
                 this.selectedProfile = response.selectedProfile;
@@ -276,7 +277,7 @@ public class AuthenticationService {
             throw new InvalidCredentialsException("Invalid password.");
         } else {
             AuthenticationRequest request = new AuthenticationRequest(this.username, this.password, this.clientToken);
-            AuthenticationResponse response = RequestUtil.makeRequest(this.proxy, AUTHENTICATE_URL, request, AuthenticationResponse.class);
+            AuthenticationResponse response = HTTP.makeRequest(this.proxy, AUTHENTICATE_URL, request, AuthenticationResponse.class);
             if(!response.clientToken.equals(this.clientToken)) {
                 throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
             } else {
@@ -311,7 +312,7 @@ public class AuthenticationService {
             throw new InvalidCredentialsException("Invalid access token.");
         } else {
             RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, null);
-            RefreshResponse response = RequestUtil.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
+            RefreshResponse response = HTTP.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
             if(response.clientToken.equals(this.clientToken)) {
                 if(response.user != null && response.user.id != null) {
                     this.id = response.user.id;

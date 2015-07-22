@@ -22,14 +22,14 @@ import java.util.UUID;
 /**
  * Utilities for making HTTP requests.
  */
-public class RequestUtil {
+public class HTTP {
     private static final Gson GSON;
 
     static {
         GSON = new GsonBuilder().registerTypeAdapter(UUID.class, new UUIDSerializer()).create();
     }
 
-    private RequestUtil() {
+    private HTTP() {
     }
 
     /**
