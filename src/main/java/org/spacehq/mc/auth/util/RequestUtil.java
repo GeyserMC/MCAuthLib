@@ -9,6 +9,7 @@ import org.spacehq.mc.auth.exception.authentication.UserMigratedException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -91,20 +92,32 @@ public class RequestUtil {
 
         HttpURLConnection connection = createUrlConnection(proxy, url);
         connection.setDoInput(true);
-        BufferedReader reader = null;
+
+        InputStream in = null;
         try {
-            reader = new BufferedReader(new InputStreamReader(connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()));
-            StringBuilder result = new StringBuilder();
-            String line = null;
-            while((line = reader.readLine()) != null) {
-                result.append(line).append("\n");
+            int responseCode = connection.getResponseCode();
+            if(responseCode == 200) {
+                in = connection.getInputStream();
+            } else {
+                in = connection.getErrorStream();
             }
 
-            return result.toString();
+            if(in != null) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                StringBuilder result = new StringBuilder();
+                String line = null;
+                while((line = reader.readLine()) != null) {
+                    result.append(line).append("\n");
+                }
+
+                return result.toString();
+            } else {
+                return "";
+            }
         } finally {
-            if(reader != null) {
+            if(in != null) {
                 try {
-                    reader.close();
+                    in.close();
                 } catch(IOException e) {
                 }
             }
@@ -128,12 +141,14 @@ public class RequestUtil {
             throw new IllegalArgumentException("Type cannot be null.");
         }
 
-        HttpURLConnection connection = createUrlConnection(proxy, url);
         byte[] bytes = post.getBytes("UTF-8");
+
+        HttpURLConnection connection = createUrlConnection(proxy, url);
         connection.setRequestProperty("Content-Type", type + "; charset=utf-8");
         connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
         connection.setDoInput(true);
         connection.setDoOutput(true);
+
         OutputStream out = null;
         try {
             out = connection.getOutputStream();
@@ -147,20 +162,31 @@ public class RequestUtil {
             }
         }
 
-        BufferedReader reader = null;
+        InputStream in = null;
         try {
-            reader = new BufferedReader(new InputStreamReader(connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()));
-            StringBuilder result = new StringBuilder();
-            String line = null;
-            while((line = reader.readLine()) != null) {
-                result.append(line).append("\n");
+            int responseCode = connection.getResponseCode();
+            if(responseCode == 200) {
+                in = connection.getInputStream();
+            } else {
+                in = connection.getErrorStream();
             }
 
-            return result.toString();
+            if(in != null) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                StringBuilder result = new StringBuilder();
+                String line = null;
+                while((line = reader.readLine()) != null) {
+                    result.append(line).append("\n");
+                }
+
+                return result.toString();
+            } else {
+                return "";
+            }
         } finally {
-            if(reader != null) {
+            if(in != null) {
                 try {
-                    reader.close();
+                    in.close();
                 } catch(IOException e) {
                 }
             }
