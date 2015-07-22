@@ -1,7 +1,7 @@
 package org.spacehq.mc.auth;
 
-import org.spacehq.mc.auth.exception.authentication.AuthenticationException;
-import org.spacehq.mc.auth.exception.authentication.InvalidCredentialsException;
+import org.spacehq.mc.auth.exception.request.RequestException;
+import org.spacehq.mc.auth.exception.request.InvalidCredentialsException;
 import org.spacehq.mc.auth.util.RequestUtil;
 
 import java.net.Proxy;
@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Service used for authenticating users.
@@ -17,6 +18,7 @@ public class AuthenticationService {
     private static final String BASE_URL = "https://authserver.mojang.com/";
     private static final String AUTHENTICATE_URL = BASE_URL + "authenticate";
     private static final String REFRESH_URL = BASE_URL + "refresh";
+    private static final String INVALIDATE_URL = BASE_URL + "invalidate";
 
     private String clientToken;
     private Proxy proxy;
@@ -26,10 +28,26 @@ public class AuthenticationService {
     private String accessToken;
 
     private boolean loggedIn;
-    private String userId;
+    private String id;
     private List<GameProfile.Property> properties = new ArrayList<GameProfile.Property>();
     private List<GameProfile> profiles = new ArrayList<GameProfile>();
     private GameProfile selectedProfile;
+
+    /**
+     * Creates a new AuthenticationService instance.
+     */
+    public AuthenticationService() {
+        this(UUID.randomUUID().toString());
+    }
+
+    /**
+     * Creates a new AuthenticationService instance.
+     *
+     * @param proxy Proxy to use when making HTTP requests.
+     */
+    public AuthenticationService(Proxy proxy) {
+        this(UUID.randomUUID().toString(), proxy);
+    }
 
     /**
      * Creates a new AuthenticationService instance.
@@ -74,7 +92,7 @@ public class AuthenticationService {
      * @return The service's username.
      */
     public String getUsername() {
-        return this.userId;
+        return this.id;
     }
 
     /**
@@ -96,45 +114,6 @@ public class AuthenticationService {
     }
 
     /**
-     * Sets the username of the service.
-     *
-     * @param username Username to set.
-     */
-    public void setUsername(String username) {
-        if(this.isLoggedIn() && this.selectedProfile != null) {
-            throw new IllegalStateException("Cannot change username while user is logged in and profile is selected.");
-        } else {
-            this.username = username;
-        }
-    }
-
-    /**
-     * Sets the password of the service.
-     *
-     * @param password Password to set.
-     */
-    public void setPassword(String password) {
-        if(this.isLoggedIn() && this.selectedProfile != null) {
-            throw new IllegalStateException("Cannot set password while user is logged in and profile is selected.");
-        } else {
-            this.password = password;
-        }
-    }
-
-    /**
-     * Sets the access token of the service.
-     *
-     * @param accessToken Access token to set.
-     */
-    public void setAccessToken(String accessToken) {
-        if(this.isLoggedIn() && this.selectedProfile != null) {
-            throw new IllegalStateException("Cannot change access token while user is logged in and profile is selected.");
-        } else {
-            this.accessToken = accessToken;
-        }
-    }
-
-    /**
      * Gets whether the service has been used to log in.
      *
      * @return Whether the service is logged in.
@@ -148,8 +127,8 @@ public class AuthenticationService {
      *
      * @return The user's ID.
      */
-    public String getUserId() {
-        return this.userId;
+    public String getId() {
+        return this.id;
     }
 
     /**
@@ -180,11 +159,50 @@ public class AuthenticationService {
     }
 
     /**
+     * Sets the username of the service.
+     *
+     * @param username Username to set.
+     */
+    public void setUsername(String username) {
+        if(this.loggedIn && this.selectedProfile != null) {
+            throw new IllegalStateException("Cannot change username while user is logged in and profile is selected.");
+        } else {
+            this.username = username;
+        }
+    }
+
+    /**
+     * Sets the password of the service.
+     *
+     * @param password Password to set.
+     */
+    public void setPassword(String password) {
+        if(this.loggedIn && this.selectedProfile != null) {
+            throw new IllegalStateException("Cannot change password while user is logged in and profile is selected.");
+        } else {
+            this.password = password;
+        }
+    }
+
+    /**
+     * Sets the access token of the service.
+     *
+     * @param accessToken Access token to set.
+     */
+    public void setAccessToken(String accessToken) {
+        if(this.loggedIn && this.selectedProfile != null) {
+            throw new IllegalStateException("Cannot change access token while user is logged in and profile is selected.");
+        } else {
+            this.accessToken = accessToken;
+        }
+    }
+
+    /**
      * Logs the service in.
      *
-     * @throws AuthenticationException If an authentication error occurs.
+     * @throws RequestException If an error occurs while making the request.
      */
-    public void login() throws AuthenticationException {
+    public void login() throws RequestException {
         if(this.username == null || this.username.equals("")) {
             throw new InvalidCredentialsException("Invalid username.");
         } else {
@@ -201,11 +219,21 @@ public class AuthenticationService {
     }
 
     /**
-     * Logs the session out.
+     * Logs the service out.
+     *
+     * @throws RequestException If an error occurs while making the request.
      */
-    public void logout() {
+    public void logout() throws RequestException {
+        if(!this.loggedIn) {
+            throw new IllegalStateException("Cannot log out while not logged in.");
+        }
+
+        InvalidateRequest request = new InvalidateRequest(this.clientToken, this.accessToken);
+        RequestUtil.makeRequest(this.proxy, INVALIDATE_URL, request);
+
+        this.accessToken = null;
         this.loggedIn = false;
-        this.userId = null;
+        this.id = null;
         this.properties.clear();
         this.profiles.clear();
         this.selectedProfile = null;
@@ -215,13 +243,13 @@ public class AuthenticationService {
      * Selects a game profile.
      *
      * @param profile Profile to select.
-     * @throws AuthenticationException If an authentication error occurs.
+     * @throws RequestException If an error occurs while making the request.
      */
-    public void selectGameProfile(GameProfile profile) throws AuthenticationException {
+    public void selectGameProfile(GameProfile profile) throws RequestException {
         if(!this.loggedIn) {
-            throw new AuthenticationException("Cannot change game profile while not logged in.");
+            throw new RequestException("Cannot change game profile while not logged in.");
         } else if(this.selectedProfile != null) {
-            throw new AuthenticationException("Cannot change game profile when it is already selected. You must log out and back in.");
+            throw new RequestException("Cannot change game profile when it is already selected.");
         } else if(profile != null && this.profiles.contains(profile)) {
             RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, profile);
             RefreshResponse response = RequestUtil.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
@@ -229,7 +257,7 @@ public class AuthenticationService {
                 this.accessToken = response.accessToken;
                 this.selectedProfile = response.selectedProfile;
             } else {
-                throw new AuthenticationException("Server requested we change our client token. Don't know how to handle this!");
+                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
             }
         } else {
             throw new IllegalArgumentException("Invalid profile '" + profile + "'.");
@@ -241,21 +269,21 @@ public class AuthenticationService {
         return "UserAuthentication{clientToken=" + this.clientToken + ", username=" + this.username + ", accessToken=" + this.accessToken + ", loggedIn=" + this.loggedIn + ", profiles=" + this.profiles + ", selectedProfile=" + this.selectedProfile + "}";
     }
 
-    private void loginWithPassword() throws AuthenticationException {
-        if(this.username == null || this.username.equals("")) {
+    private void loginWithPassword() throws RequestException {
+        if(this.username == null || this.username.isEmpty()) {
             throw new InvalidCredentialsException("Invalid username.");
-        } else if(this.password == null || this.password.equals("")) {
+        } else if(this.password == null || this.password.isEmpty()) {
             throw new InvalidCredentialsException("Invalid password.");
         } else {
             AuthenticationRequest request = new AuthenticationRequest(this.username, this.password, this.clientToken);
             AuthenticationResponse response = RequestUtil.makeRequest(this.proxy, AUTHENTICATE_URL, request, AuthenticationResponse.class);
             if(!response.clientToken.equals(this.clientToken)) {
-                throw new AuthenticationException("Server requested we change our client token. Don't know how to handle this!");
+                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
             } else {
                 if(response.user != null && response.user.id != null) {
-                    this.userId = response.user.id;
+                    this.id = response.user.id;
                 } else {
-                    this.userId = this.username;
+                    this.id = this.username;
                 }
 
                 this.loggedIn = true;
@@ -270,13 +298,13 @@ public class AuthenticationService {
         }
     }
 
-    private void loginWithToken() throws AuthenticationException {
-        if(this.userId == null || this.userId.equals("")) {
-            if(this.username == null || this.username.equals("")) {
+    private void loginWithToken() throws RequestException {
+        if(this.id == null || this.id.isEmpty()) {
+            if(this.username == null || this.username.isEmpty()) {
                 throw new InvalidCredentialsException("Invalid uuid and username.");
             }
 
-            this.userId = this.username;
+            this.id = this.username;
         }
 
         if(this.accessToken == null || this.accessToken.equals("")) {
@@ -286,9 +314,9 @@ public class AuthenticationService {
             RefreshResponse response = RequestUtil.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
             if(response.clientToken.equals(this.clientToken)) {
                 if(response.user != null && response.user.id != null) {
-                    this.userId = response.user.id;
+                    this.id = response.user.id;
                 } else {
-                    this.userId = this.username;
+                    this.id = this.username;
                 }
 
                 this.loggedIn = true;
@@ -300,7 +328,7 @@ public class AuthenticationService {
                     this.properties.addAll(response.user.properties);
                 }
             } else {
-                throw new AuthenticationException("Server requested we change our client token. Don't know how to handle this!");
+                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
             }
         }
     }
@@ -350,7 +378,17 @@ public class AuthenticationService {
         }
     }
 
-    private static class AuthenticationResponse extends RequestUtil.Response {
+    private static class InvalidateRequest {
+        private String clientToken;
+        private String accessToken;
+
+        protected InvalidateRequest(String clientToken, String accessToken) {
+            this.clientToken = clientToken;
+            this.accessToken = accessToken;
+        }
+    }
+
+    private static class AuthenticationResponse {
         public String accessToken;
         public String clientToken;
         public GameProfile selectedProfile;
@@ -358,7 +396,7 @@ public class AuthenticationService {
         public User user;
     }
 
-    private static class RefreshResponse extends RequestUtil.Response {
+    private static class RefreshResponse {
         public String accessToken;
         public String clientToken;
         public GameProfile selectedProfile;

@@ -2,8 +2,7 @@ package org.spacehq.mc.auth;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.spacehq.mc.auth.exception.authentication.AuthenticationException;
-import org.spacehq.mc.auth.exception.authentication.AuthenticationUnavailableException;
+import org.spacehq.mc.auth.exception.request.RequestException;
 import org.spacehq.mc.auth.exception.profile.ProfileException;
 import org.spacehq.mc.auth.exception.profile.ProfileLookupException;
 import org.spacehq.mc.auth.exception.profile.ProfileNotFoundException;
@@ -16,15 +15,12 @@ import org.spacehq.mc.auth.util.UUIDSerializer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.Proxy;
-import java.net.URLEncoder;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -100,11 +96,11 @@ public class SessionService {
      * @param profile             Profile to join the server with.
      * @param authenticationToken Authentication token to join the server with.
      * @param serverId            ID of the server to join.
-     * @throws AuthenticationException If an authentication error occurs.
+     * @throws RequestException If an error occurs while making the request.
      */
-    public void joinServer(GameProfile profile, String authenticationToken, String serverId) throws AuthenticationException {
+    public void joinServer(GameProfile profile, String authenticationToken, String serverId) throws RequestException {
         JoinServerRequest request = new JoinServerRequest(authenticationToken, profile.getId(), serverId);
-        RequestUtil.makeRequest(this.proxy, JOIN_URL, request, RequestUtil.Response.class);
+        RequestUtil.makeRequest(this.proxy, JOIN_URL, request, null);
     }
 
     /**
@@ -113,50 +109,18 @@ public class SessionService {
      * @param name     Name of the user to get the profile of.
      * @param serverId ID of the server to check if they're logged in to.
      * @return The profile of the given user, or null if they are not logged in to the given server.
-     * @throws AuthenticationUnavailableException If the authentication server is currently unavailable.
+     * @throws RequestException If an error occurs while making the request.
      */
-    public GameProfile getProfileByServer(String name, String serverId) throws AuthenticationUnavailableException {
-        Map<String, Object> arguments = new HashMap<String, Object>();
-        arguments.put("username", name);
-        arguments.put("serverId", serverId);
-        try {
-            StringBuilder url = new StringBuilder(HAS_JOINED_URL + "?");
-            boolean first = true;
-            for(Map.Entry<String, Object> entry : arguments.entrySet()) {
-                if(!first) {
-                    url.append("&");
-                }
-
-                first = false;
-
-                try {
-                    url.append(URLEncoder.encode(entry.getKey(), "UTF-8"));
-                } catch(UnsupportedEncodingException e) {
-                }
-
-                if(entry.getValue() != null) {
-                    url.append("=");
-                    try {
-                        url.append(URLEncoder.encode(entry.getValue().toString(), "UTF-8"));
-                    } catch(UnsupportedEncodingException e) {
-                    }
-                }
+    public GameProfile getProfileByServer(String name, String serverId) throws RequestException {
+        HasJoinedResponse response = RequestUtil.makeRequest(this.proxy, HAS_JOINED_URL + "?username=" + name + "&serverId=" + serverId, null, HasJoinedResponse.class);
+        if(response != null && response.id != null) {
+            GameProfile result = new GameProfile(response.id, name);
+            if(response.properties != null) {
+                result.getProperties().addAll(response.properties);
             }
 
-            HasJoinedResponse response = RequestUtil.makeRequest(this.proxy, url.toString(), null, HasJoinedResponse.class);
-            if(response != null && response.id != null) {
-                GameProfile result = new GameProfile(response.id, name);
-                if(response.properties != null) {
-                    result.getProperties().addAll(response.properties);
-                }
-
-                return result;
-            } else {
-                return null;
-            }
-        } catch(AuthenticationUnavailableException e) {
-            throw e;
-        } catch(AuthenticationException e) {
+            return result;
+        } else {
             return null;
         }
     }
@@ -184,7 +148,7 @@ public class SessionService {
             }
 
             return profile;
-        } catch(AuthenticationException e) {
+        } catch(RequestException e) {
             throw new ProfileLookupException("Couldn't look up profile properties for " + profile + ".", e);
         }
     }
@@ -262,12 +226,12 @@ public class SessionService {
         }
     }
 
-    private static class HasJoinedResponse extends RequestUtil.Response {
+    private static class HasJoinedResponse {
         public UUID id;
         public List<GameProfile.Property> properties;
     }
 
-    private static class MinecraftProfileResponse extends RequestUtil.Response {
+    private static class MinecraftProfileResponse {
         public UUID id;
         public String name;
         public List<GameProfile.Property> properties;

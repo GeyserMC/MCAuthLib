@@ -4,7 +4,7 @@ import org.spacehq.mc.auth.AuthenticationService;
 import org.spacehq.mc.auth.GameProfile;
 import org.spacehq.mc.auth.GameProfileRepository;
 import org.spacehq.mc.auth.SessionService;
-import org.spacehq.mc.auth.exception.authentication.AuthenticationException;
+import org.spacehq.mc.auth.exception.request.RequestException;
 
 import java.net.Proxy;
 import java.util.UUID;
@@ -24,7 +24,7 @@ public class MinecraftAuthTest {
 
     private static void profileLookup() {
         GameProfileRepository repository = new GameProfileRepository(PROXY);
-        repository.findProfilesByNames(new String[] { USERNAME }, new GameProfileRepository.ProfileLookupCallback() {
+        repository.findProfilesByName(new String[] { USERNAME }, new GameProfileRepository.ProfileLookupCallback() {
             @Override
             public void onProfileLookupSucceeded(GameProfile profile) {
                 System.out.println("Found profile: " + profile);
@@ -50,7 +50,7 @@ public class MinecraftAuthTest {
 
         try {
             auth.login();
-        } catch(AuthenticationException e) {
+        } catch(RequestException e) {
             System.err.println("Failed to log in!");
             e.printStackTrace();
             return;

@@ -1,6 +1,6 @@
 package org.spacehq.mc.auth;
 
-import org.spacehq.mc.auth.exception.authentication.AuthenticationException;
+import org.spacehq.mc.auth.exception.request.RequestException;
 import org.spacehq.mc.auth.exception.profile.ProfileNotFoundException;
 import org.spacehq.mc.auth.util.RequestUtil;
 
@@ -17,6 +17,7 @@ import java.util.UUID;
 public class GameProfileRepository {
     private static final String BASE_URL = "https://api.mojang.com/profiles/";
     private static final String SEARCH_URL = BASE_URL + "minecraft";
+
     private static final int MAX_FAIL_COUNT = 3;
     private static final int DELAY_BETWEEN_PAGES = 100;
     private static final int DELAY_BETWEEN_FAILURES = 750;
@@ -50,8 +51,8 @@ public class GameProfileRepository {
      * @param names    Names to look for.
      * @param callback Callback to pass results to.
      */
-    public void findProfilesByNames(String[] names, ProfileLookupCallback callback) {
-        this.findProfilesByNames(names, callback, false);
+    public void findProfilesByName(String[] names, ProfileLookupCallback callback) {
+        this.findProfilesByName(names, callback, false);
     }
 
     /**
@@ -61,7 +62,7 @@ public class GameProfileRepository {
      * @param callback Callback to pass results to.
      * @param async    Whether to perform requests asynchronously.
      */
-    public void findProfilesByNames(final String[] names, final ProfileLookupCallback callback, final boolean async) {
+    public void findProfilesByName(final String[] names, final ProfileLookupCallback callback, final boolean async) {
         final Set<String> criteria = new HashSet<String>();
         for(String name : names) {
             if(name != null && !name.isEmpty()) {
@@ -95,7 +96,7 @@ public class GameProfileRepository {
                                 Thread.sleep(DELAY_BETWEEN_PAGES);
                             } catch(InterruptedException ignored) {
                             }
-                        } catch(AuthenticationException e) {
+                        } catch(RequestException e) {
                             error = e;
                             failCount++;
                             if(failCount >= MAX_FAIL_COUNT) {

@@ -1,4 +1,4 @@
-package org.spacehq.mc.auth.exception.authentication;
+package org.spacehq.mc.auth.exception.request;
 
 /**
  * Thrown when using the username of an account that has been migrated to an email address.

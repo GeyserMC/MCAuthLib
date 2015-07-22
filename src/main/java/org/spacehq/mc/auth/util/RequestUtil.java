@@ -2,10 +2,12 @@ package org.spacehq.mc.auth.util;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.spacehq.mc.auth.exception.authentication.AuthenticationException;
-import org.spacehq.mc.auth.exception.authentication.AuthenticationUnavailableException;
-import org.spacehq.mc.auth.exception.authentication.InvalidCredentialsException;
-import org.spacehq.mc.auth.exception.authentication.UserMigratedException;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import org.spacehq.mc.auth.exception.request.RequestException;
+import org.spacehq.mc.auth.exception.request.ServiceUnavailableException;
+import org.spacehq.mc.auth.exception.request.InvalidCredentialsException;
+import org.spacehq.mc.auth.exception.request.UserMigratedException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -36,33 +38,52 @@ public class RequestUtil {
      * @param proxy Proxy to use when making the request.
      * @param url   URL to make the request to.
      * @param input Input to provide in the request.
+     * @throws RequestException If an error occurs while making the request.
+     */
+    public static void makeRequest(Proxy proxy, String url, Object input) throws RequestException {
+        makeRequest(proxy, url, input, null);
+    }
+
+    /**
+     * Makes an HTTP request.
+     *
+     * @param proxy Proxy to use when making the request.
+     * @param url   URL to make the request to.
+     * @param input Input to provide in the request.
      * @param clazz Class to provide the response as.
      * @return The response of the request.
-     * @throws AuthenticationException If an authentication error occurs.
+     * @throws RequestException If an error occurs while making the request.
      */
-    public static <T> T makeRequest(Proxy proxy, String url, Object input, Class<T> clazz) throws AuthenticationException {
-        T result = null;
+    public static <T> T makeRequest(Proxy proxy, String url, Object input, Class<T> clazz) throws RequestException {
+        JsonElement response = null;
         try {
             String jsonString = input == null ? performGetRequest(proxy, url) : performPostRequest(proxy, url, GSON.toJson(input), "application/json");
-            result = GSON.fromJson(jsonString, clazz);
+            response = GSON.fromJson(jsonString, JsonElement.class);
         } catch(Exception e) {
-            throw new AuthenticationUnavailableException("Could not make request to auth server.", e);
+            throw new ServiceUnavailableException("Could not make request to '" + url + "'.", e);
         }
 
-        if(result instanceof Response) {
-            Response response = (Response) result;
-            if(response.getError() != null && !response.getError().equals("")) {
-                if(response.getCause() != null && response.getCause().equals("UserMigratedException")) {
-                    throw new UserMigratedException(response.getErrorMessage());
-                } else if(response.getError().equals("ForbiddenOperationException")) {
-                    throw new InvalidCredentialsException(response.getErrorMessage());
-                } else {
-                    throw new AuthenticationException(response.getErrorMessage());
+        if(response.isJsonObject()) {
+            JsonObject object = response.getAsJsonObject();
+            if(object.has("error")) {
+                String error = object.get("error").getAsString();
+                String cause = object.has("cause") ? object.get("cause").getAsString() : "";
+                String errorMessage = object.has("errorMessage") ? object.get("errorMessage").getAsString() : "";
+                if(!error.equals("")) {
+                    if(error.equals("ForbiddenOperationException")) {
+                        if(cause != null && cause.equals("UserMigratedException")) {
+                            throw new UserMigratedException(errorMessage);
+                        } else {
+                            throw new InvalidCredentialsException(errorMessage);
+                        }
+                    } else {
+                        throw new RequestException(errorMessage);
+                    }
                 }
             }
         }
 
-        return result;
+        return clazz != null ? GSON.fromJson(response, clazz) : null;
     }
 
     private static HttpURLConnection createUrlConnection(Proxy proxy, String url) throws IOException {
@@ -190,42 +211,6 @@ public class RequestUtil {
                 } catch(IOException e) {
                 }
             }
-        }
-    }
-
-    /**
-     * Basic response containing error details, if available.
-     */
-    public static class Response {
-        private String error;
-        private String errorMessage;
-        private String cause;
-
-        /**
-         * Gets the error contained in this response.
-         *
-         * @return The response's error.
-         */
-        public String getError() {
-            return this.error;
-        }
-
-        /**
-         * Gets the cause of the error contained in this response.
-         *
-         * @return The response's error cause.
-         */
-        public String getCause() {
-            return this.cause;
-        }
-
-        /**
-         * Gets the error message contained in this response.
-         *
-         * @return The response's error message.
-         */
-        public String getErrorMessage() {
-            return this.errorMessage;
         }
     }
 }
