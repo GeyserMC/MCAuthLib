@@ -63,27 +63,33 @@ public class HTTP {
             throw new ServiceUnavailableException("Could not make request to '" + url + "'.", e);
         }
 
-        if(response.isJsonObject()) {
-            JsonObject object = response.getAsJsonObject();
-            if(object.has("error")) {
-                String error = object.get("error").getAsString();
-                String cause = object.has("cause") ? object.get("cause").getAsString() : "";
-                String errorMessage = object.has("errorMessage") ? object.get("errorMessage").getAsString() : "";
-                if(!error.equals("")) {
-                    if(error.equals("ForbiddenOperationException")) {
-                        if(cause != null && cause.equals("UserMigratedException")) {
-                            throw new UserMigratedException(errorMessage);
+        if(response != null) {
+            if(response.isJsonObject()) {
+                JsonObject object = response.getAsJsonObject();
+                if(object.has("error")) {
+                    String error = object.get("error").getAsString();
+                    String cause = object.has("cause") ? object.get("cause").getAsString() : "";
+                    String errorMessage = object.has("errorMessage") ? object.get("errorMessage").getAsString() : "";
+                    if(!error.equals("")) {
+                        if(error.equals("ForbiddenOperationException")) {
+                            if(cause != null && cause.equals("UserMigratedException")) {
+                                throw new UserMigratedException(errorMessage);
+                            } else {
+                                throw new InvalidCredentialsException(errorMessage);
+                            }
                         } else {
-                            throw new InvalidCredentialsException(errorMessage);
+                            throw new RequestException(errorMessage);
                         }
-                    } else {
-                        throw new RequestException(errorMessage);
                     }
                 }
             }
+
+            if(clazz != null) {
+                return GSON.fromJson(response, clazz);
+            }
         }
 
-        return clazz != null ? GSON.fromJson(response, clazz) : null;
+        return null;
     }
 
     private static HttpURLConnection createUrlConnection(Proxy proxy, String url) throws IOException {
