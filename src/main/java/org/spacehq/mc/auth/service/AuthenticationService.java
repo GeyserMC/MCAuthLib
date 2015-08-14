@@ -278,9 +278,7 @@ public class AuthenticationService {
         } else {
             AuthenticationRequest request = new AuthenticationRequest(this.username, this.password, this.clientToken);
             AuthenticationResponse response = HTTP.makeRequest(this.proxy, AUTHENTICATE_URL, request, AuthenticationResponse.class);
-            if(!response.clientToken.equals(this.clientToken)) {
-                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
-            } else {
+            if(response.clientToken.equals(this.clientToken)) {
                 if(response.user != null && response.user.id != null) {
                     this.id = response.user.id;
                 } else {
@@ -295,6 +293,8 @@ public class AuthenticationService {
                 if(response.user != null && response.user.properties != null) {
                     this.properties.addAll(response.user.properties);
                 }
+            } else {
+                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
             }
         }
     }
@@ -322,7 +322,7 @@ public class AuthenticationService {
 
                 this.loggedIn = true;
                 this.accessToken = response.accessToken;
-                this.profiles = Arrays.asList(response.availableProfiles);
+                this.profiles = response.availableProfiles != null ? Arrays.asList(response.availableProfiles) : Collections.<GameProfile>emptyList();
                 this.selectedProfile = response.selectedProfile;
                 this.properties.clear();
                 if(response.user != null && response.user.properties != null) {
