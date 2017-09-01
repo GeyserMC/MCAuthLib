@@ -1,10 +1,10 @@
 package com.github.steveice10.mc.auth.test;
 
-import com.github.steveice10.mc.auth.service.AuthenticationService;
 import com.github.steveice10.mc.auth.data.GameProfile;
+import com.github.steveice10.mc.auth.exception.request.RequestException;
+import com.github.steveice10.mc.auth.service.AuthenticationService;
 import com.github.steveice10.mc.auth.service.ProfileService;
 import com.github.steveice10.mc.auth.service.SessionService;
-import com.github.steveice10.mc.auth.exception.request.RequestException;
 
 import java.net.Proxy;
 import java.util.UUID;
@@ -24,7 +24,7 @@ public class MinecraftAuthTest {
 
     private static void profileLookup() {
         ProfileService repository = new ProfileService(PROXY);
-        repository.findProfilesByName(new String[] { USERNAME }, new ProfileService.ProfileLookupCallback() {
+        repository.findProfilesByName(new String[] {USERNAME}, new ProfileService.ProfileLookupCallback() {
             @Override
             public void onProfileLookupSucceeded(GameProfile profile) {
                 System.out.println("Found profile: " + profile);

@@ -2,8 +2,8 @@ package com.github.steveice10.mc.auth.service;
 
 import com.github.steveice10.mc.auth.data.GameProfile;
 import com.github.steveice10.mc.auth.exception.profile.ProfileNotFoundException;
-import com.github.steveice10.mc.auth.util.HTTP;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
+import com.github.steveice10.mc.auth.util.HTTP;
 
 import java.net.Proxy;
 import java.util.ArrayList;

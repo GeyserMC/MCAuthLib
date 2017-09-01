@@ -1,13 +1,13 @@
 package com.github.steveice10.mc.auth.util;
 
 import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsException;
+import com.github.steveice10.mc.auth.exception.request.RequestException;
+import com.github.steveice10.mc.auth.exception.request.ServiceUnavailableException;
 import com.github.steveice10.mc.auth.exception.request.UserMigratedException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.github.steveice10.mc.auth.exception.request.RequestException;
-import com.github.steveice10.mc.auth.exception.request.ServiceUnavailableException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public class HTTP {
      * @param url   URL to make the request to.
      * @param input Input to provide in the request.
      * @param clazz Class to provide the response as.
-     * @param <T> Type to provide the response as.
+     * @param <T>   Type to provide the response as.
      * @return The response of the request.
      * @throws RequestException If an error occurs while making the request.
      */
