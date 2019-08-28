@@ -13,11 +13,16 @@ import com.github.steveice10.mc.auth.util.UUIDSerializer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import javax.crypto.SecretKey;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.net.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Calendar;
@@ -52,9 +57,7 @@ public class SessionService {
             in.close();
             out.close();
 
-            X509EncodedKeySpec spec = new X509EncodedKeySpec(out.toByteArray());
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            SIGNATURE_KEY = keyFactory.generatePublic(spec);
+            SIGNATURE_KEY = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(out.toByteArray()));
         } catch(Exception e) {
             throw new ExceptionInInitializerError("Missing/invalid yggdrasil public key.");
         } finally {
@@ -89,6 +92,27 @@ public class SessionService {
         }
 
         this.proxy = proxy;
+    }
+
+    /**
+     * Calculates the server ID from a base string, public key, and secret key.
+     *
+     * @param base      Base server ID to use.
+     * @param publicKey Public key to use.
+     * @param secretKey Secret key to use.
+     * @return The calculated server ID.
+     * @throws IllegalStateException If the server ID hash algorithm is unavailable.
+     */
+    public String getServerId(String base, PublicKey publicKey, SecretKey secretKey) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            digest.update(base.getBytes(StandardCharsets.ISO_8859_1));
+            digest.update(secretKey.getEncoded());
+            digest.update(publicKey.getEncoded());
+            return new BigInteger(digest.digest()).toString(16);
+        } catch(NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Server ID hash algorithm unavailable.", e);
+        }
     }
 
     /**
