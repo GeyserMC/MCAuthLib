@@ -6,9 +6,11 @@ import com.github.steveice10.mc.auth.util.Base64;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -83,16 +85,33 @@ public class GameProfile {
     }
 
     /**
-     * Gets a list of properties contained in the profile.
+     * Gets an immutable list of properties contained in the profile.
      *
      * @return The profile's properties.
      */
     public List<Property> getProperties() {
         if(this.properties == null) {
-            this.properties = new ArrayList<Property>();
+            this.properties = new ArrayList<>();
         }
 
-        return this.properties;
+        return Collections.unmodifiableList(this.properties);
+    }
+
+    /**
+     * Sets the properties of this profile.
+     *
+     * @param properties Properties belonging to this profile.
+     */
+    public void setProperties(List<Property> properties) {
+        if(this.properties == null) {
+            this.properties = new ArrayList<>();
+        } else {
+            this.properties.clear();
+        }
+
+        if(properties != null) {
+            this.properties.addAll(properties);
+        }
     }
 
     /**
@@ -112,16 +131,33 @@ public class GameProfile {
     }
 
     /**
-     * Gets a map of texture types to textures contained in the profile.
+     * Gets an immutable map of texture types to textures contained in the profile.
      *
      * @return The profile's textures.
      */
     public Map<TextureType, Texture> getTextures() {
         if(this.textures == null) {
-            this.textures = new HashMap<TextureType, Texture>();
+            this.textures = new HashMap<>();
         }
 
-        return this.textures;
+        return Collections.unmodifiableMap(this.textures);
+    }
+
+    /**
+     * Sets the textures of this profile.
+     *
+     * @param textures Textures belonging to this profile.
+     */
+    public void setTextures(Map<TextureType, Texture> textures) {
+        if(this.textures == null) {
+            this.textures = new HashMap<>();
+        } else {
+            this.textures.clear();
+        }
+
+        if(textures != null) {
+            this.textures.putAll(textures);
+        }
     }
 
     /**
@@ -140,7 +176,7 @@ public class GameProfile {
             return true;
         } else if(o != null && this.getClass() == o.getClass()) {
             GameProfile that = (GameProfile) o;
-            return (this.id != null ? this.id.equals(that.id) : that.id == null) && (this.name != null ? this.name.equals(that.name) : that.name == null);
+            return Objects.equals(this.id, that.id) && Objects.equals(this.name, that.name);
         } else {
             return false;
         }
@@ -208,21 +244,21 @@ public class GameProfile {
         }
 
         /**
-         * Gets the signature used to verify the property.
-         *
-         * @return The property's signature.
-         */
-        public String getSignature() {
-            return this.signature;
-        }
-
-        /**
          * Gets whether this property has a signature to verify it.
          *
          * @return Whether this property is signed.
          */
         public boolean hasSignature() {
             return this.signature != null;
+        }
+
+        /**
+         * Gets the signature used to verify the property.
+         *
+         * @return The property's signature.
+         */
+        public String getSignature() {
+            return this.signature;
         }
 
         /**
@@ -256,15 +292,16 @@ public class GameProfile {
     /**
      * The type of a profile texture.
      */
-    public static enum TextureType {
+    public enum TextureType {
         SKIN,
-        CAPE;
+        CAPE,
+        ELYTRA;
     }
 
     /**
      * The model used for a profile texture.
      */
-    public static enum TextureModel {
+    public enum TextureModel {
         NORMAL,
         SLIM;
     }
@@ -284,7 +321,7 @@ public class GameProfile {
          */
         public Texture(String url, Map<String, String> metadata) {
             this.url = url;
-            this.metadata = metadata;
+            this.metadata = new HashMap<>(metadata);
         }
 
         /**
@@ -297,12 +334,21 @@ public class GameProfile {
         }
 
         /**
+         * Gets a metadata string from the texture.
+         *
+         * @return The metadata value corresponding to the given key.
+         */
+        public String getMetadata(String key) {
+            return this.metadata != null ? this.metadata.get(key) : null;
+        }
+
+        /**
          * Gets the model of the texture.
          *
          * @return The texture's model.
          */
         public TextureModel getModel() {
-            String model = this.metadata != null ? this.metadata.get("model") : null;
+            String model = this.getMetadata("model");
             return model != null && model.equals("slim") ? TextureModel.SLIM : TextureModel.NORMAL;
         }
 

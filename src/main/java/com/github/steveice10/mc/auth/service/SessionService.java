@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.net.Proxy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -26,6 +28,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -40,36 +43,46 @@ public class SessionService {
     private static final String HAS_JOINED_URL = BASE_URL + "hasJoined";
     private static final String PROFILE_URL = BASE_URL + "profile";
 
+    private static final String[] WHITELISTED_DOMAINS = { ".minecraft.net", ".mojang.com" };
     private static final PublicKey SIGNATURE_KEY;
     private static final Gson GSON;
 
     static {
-        InputStream in = null;
-        try {
-            in = SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der");
+        try(InputStream in = SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der")) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte buffer[] = new byte[4096];
+
+            byte[] buffer = new byte[4096];
             int length = -1;
             while((length = in.read(buffer)) != -1) {
                 out.write(buffer, 0, length);
             }
 
-            in.close();
             out.close();
 
             SIGNATURE_KEY = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(out.toByteArray()));
         } catch(Exception e) {
             throw new ExceptionInInitializerError("Missing/invalid yggdrasil public key.");
-        } finally {
-            if(in != null) {
-                try {
-                    in.close();
-                } catch(IOException e) {
-                }
-            }
         }
 
         GSON = new GsonBuilder().registerTypeAdapter(UUID.class, new UUIDSerializer()).create();
+    }
+
+    private static boolean isWhitelistedDomain(String url) {
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid URL \"" + url + "\".");
+        }
+
+        String domain = uri.getHost();
+        for(String whitelistedDomain : WHITELISTED_DOMAINS) {
+            if(domain.endsWith(whitelistedDomain)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Proxy proxy;
@@ -140,10 +153,7 @@ public class SessionService {
         HasJoinedResponse response = HTTP.makeRequest(this.proxy, HAS_JOINED_URL + "?username=" + name + "&serverId=" + serverId, null, HasJoinedResponse.class);
         if(response != null && response.id != null) {
             GameProfile result = new GameProfile(response.id, name);
-            if(response.properties != null) {
-                result.getProperties().addAll(response.properties);
-            }
-
+            result.setProperties(response.properties);
             return result;
         } else {
             return null;
@@ -168,10 +178,7 @@ public class SessionService {
                 throw new ProfileNotFoundException("Couldn't fetch profile properties for " + profile + " as the profile does not exist.");
             }
 
-            if(response.properties != null) {
-                profile.getProperties().addAll(response.properties);
-            }
-
+            profile.setProperties(response.properties);
             return profile;
         } catch(RequestException e) {
             throw new ProfileLookupException("Couldn't look up profile properties for " + profile + ".", e);
@@ -187,50 +194,40 @@ public class SessionService {
      * @throws PropertyException If an error occurs while retrieving the profile's textures.
      */
     public GameProfile fillProfileTextures(GameProfile profile, boolean requireSecure) throws PropertyException {
+        Map<GameProfile.TextureType, GameProfile.Texture> textureMap = null;
+
         GameProfile.Property textures = profile.getProperty("textures");
         if(textures != null) {
-            if(!textures.hasSignature()) {
-                throw new ProfileTextureException("Signature is missing from textures payload.");
-            }
+            if(requireSecure) {
+                if(!textures.hasSignature()) {
+                    throw new ProfileTextureException("Signature is missing from textures payload.");
+                }
 
-            if(!textures.isSignatureValid(SIGNATURE_KEY)) {
-                throw new ProfileTextureException("Textures payload has been tampered with. (signature invalid)");
+                if(!textures.isSignatureValid(SIGNATURE_KEY)) {
+                    throw new ProfileTextureException("Textures payload has been tampered with. (signature invalid)");
+                }
             }
 
             MinecraftTexturesPayload result;
             try {
-                String json = new String(Base64.decode(textures.getValue().getBytes("UTF-8")));
+                String json = new String(Base64.decode(textures.getValue().getBytes(StandardCharsets.UTF_8)));
                 result = GSON.fromJson(json, MinecraftTexturesPayload.class);
             } catch(Exception e) {
                 throw new ProfileTextureException("Could not decode texture payload.", e);
             }
 
-            if(result.profileId == null || !result.profileId.equals(profile.getId())) {
-                throw new ProfileTextureException("Decrypted textures payload was for another user. (expected id " + profile.getId() + " but was for " + result.profileId + ")");
-            }
-
-            if(result.profileName == null || !result.profileName.equals(profile.getName())) {
-                throw new ProfileTextureException("Decrypted textures payload was for another user. (expected name " + profile.getName() + " but was for " + result.profileName + ")");
-            }
-
-            if(requireSecure) {
-                if(result.isPublic) {
-                    throw new ProfileTextureException("Decrypted textures payload was public when secure data is required.");
+            if(result != null && result.textures != null) {
+                for(GameProfile.Texture texture : result.textures.values()) {
+                    if (!isWhitelistedDomain(texture.getURL())) {
+                        throw new ProfileTextureException("Textures payload has been tampered with. (non-whitelisted domain)");
+                    }
                 }
 
-                Calendar limit = Calendar.getInstance();
-                limit.add(Calendar.DATE, -1);
-                Date validFrom = new Date(result.timestamp);
-                if(validFrom.before(limit.getTime())) {
-                    throw new ProfileTextureException("Decrypted textures payload is too old. (" + validFrom + ", needs to be at least " + limit + ")");
-                }
-            }
-
-            if(result.textures != null) {
-                profile.getTextures().putAll(result.textures);
+                textureMap = result.textures;
             }
         }
 
+        profile.setTextures(textureMap);
         return profile;
     }
 
