@@ -78,6 +78,7 @@ public class GameProfile {
 
     private List<Property> properties;
     private Map<TextureType, Texture> textures;
+    private boolean texturesVerified;
 
     /**
      * Creates a new GameProfile instance.
@@ -168,6 +169,10 @@ public class GameProfile {
         if(properties != null) {
             this.properties.addAll(properties);
         }
+
+        // Invalidate cached decoded textures.
+        this.textures = null;
+        this.texturesVerified = false;
     }
 
     /**
@@ -204,11 +209,9 @@ public class GameProfile {
      * @throws PropertyException If an error occurs decoding the profile's texture property.
      */
     public Map<TextureType, Texture> getTextures(boolean requireSecure) throws PropertyException {
-        if(this.textures == null) {
+        if(this.textures == null || (requireSecure && !this.texturesVerified)) {
             GameProfile.Property textures = this.getProperty("textures");
             if(textures != null) {
-                this.textures = Collections.emptyMap();
-                
                 if(requireSecure) {
                     if(!textures.hasSignature()) {
                         throw new ProfileTextureException("Signature is missing from textures payload.");
@@ -228,14 +231,20 @@ public class GameProfile {
                 }
 
                 if(result != null && result.textures != null) {
-                    for(GameProfile.Texture texture : result.textures.values()) {
-                        if (!isWhitelistedDomain(texture.getURL())) {
-                            throw new ProfileTextureException("Textures payload has been tampered with. (non-whitelisted domain)");
+                    if(requireSecure) {
+                        for(GameProfile.Texture texture : result.textures.values()) {
+                            if (!isWhitelistedDomain(texture.getURL())) {
+                                throw new ProfileTextureException("Textures payload has been tampered with. (non-whitelisted domain)");
+                            }
                         }
                     }
 
                     this.textures = result.textures;
+                } else {
+                    this.textures = Collections.emptyMap();
                 }
+
+                this.texturesVerified = requireSecure;
             } else {
                 return Collections.emptyMap();
             }
@@ -253,6 +262,18 @@ public class GameProfile {
      */
     public Texture getTexture(TextureType type) throws PropertyException {
         return this.getTextures().get(type);
+    }
+
+    /**
+     * Gets a texture contained in the profile.
+     *
+     * @param type Type of texture to get.
+     * @param requireSecure Whether to require the profile's texture payload to be securely signed.
+     * @return The texture of the specified type.
+     * @throws PropertyException If an error occurs decoding the profile's texture property.
+     */
+    public Texture getTexture(TextureType type, boolean requireSecure) throws PropertyException {
+        return this.getTextures(requireSecure).get(type);
     }
 
     @Override

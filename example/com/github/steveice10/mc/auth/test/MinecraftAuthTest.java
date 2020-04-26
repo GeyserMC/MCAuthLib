@@ -14,7 +14,7 @@ public class MinecraftAuthTest {
     private static final String EMAIL = "Username@mail.com";
     private static final String PASSWORD = "Password";
     private static final String ACCESS_TOKEN = null;
-    private static final boolean REQUIRE_SECURE_TEXTURES = false;
+    private static final boolean REQUIRE_SECURE_TEXTURES = true;
 
     private static final Proxy PROXY = Proxy.NO_PROXY;
 
