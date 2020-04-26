@@ -61,13 +61,13 @@ public class MinecraftAuthTest {
         for(GameProfile profile : auth.getAvailableProfiles()) {
             try {
                 service.fillProfileProperties(profile);
-                service.fillProfileTextures(profile, REQUIRE_SECURE_TEXTURES);
+
+                System.out.println("Profile: " + profile);
+                System.out.println("Profile Textures: " + profile.getTextures(REQUIRE_SECURE_TEXTURES));
             } catch(Exception e) {
                 System.err.println("Failed to get properties and textures of profile " + profile + ".");
                 e.printStackTrace();
             }
-
-            System.out.println("Profile: " + profile);
         }
     }
 }

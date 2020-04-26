@@ -4,34 +4,19 @@ import com.github.steveice10.mc.auth.data.GameProfile;
 import com.github.steveice10.mc.auth.exception.profile.ProfileException;
 import com.github.steveice10.mc.auth.exception.profile.ProfileLookupException;
 import com.github.steveice10.mc.auth.exception.profile.ProfileNotFoundException;
-import com.github.steveice10.mc.auth.exception.property.ProfileTextureException;
 import com.github.steveice10.mc.auth.exception.property.PropertyException;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
-import com.github.steveice10.mc.auth.util.Base64;
 import com.github.steveice10.mc.auth.util.HTTP;
 import com.github.steveice10.mc.auth.util.UUIDSerializer;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 import javax.crypto.SecretKey;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
 import java.net.Proxy;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -42,48 +27,6 @@ public class SessionService {
     private static final String JOIN_URL = BASE_URL + "join";
     private static final String HAS_JOINED_URL = BASE_URL + "hasJoined";
     private static final String PROFILE_URL = BASE_URL + "profile";
-
-    private static final String[] WHITELISTED_DOMAINS = { ".minecraft.net", ".mojang.com" };
-    private static final PublicKey SIGNATURE_KEY;
-    private static final Gson GSON;
-
-    static {
-        try(InputStream in = SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-            byte[] buffer = new byte[4096];
-            int length = -1;
-            while((length = in.read(buffer)) != -1) {
-                out.write(buffer, 0, length);
-            }
-
-            out.close();
-
-            SIGNATURE_KEY = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(out.toByteArray()));
-        } catch(Exception e) {
-            throw new ExceptionInInitializerError("Missing/invalid yggdrasil public key.");
-        }
-
-        GSON = new GsonBuilder().registerTypeAdapter(UUID.class, new UUIDSerializer()).create();
-    }
-
-    private static boolean isWhitelistedDomain(String url) {
-        URI uri;
-        try {
-            uri = new URI(url);
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid URL \"" + url + "\".");
-        }
-
-        String domain = uri.getHost();
-        for(String whitelistedDomain : WHITELISTED_DOMAINS) {
-            if(domain.endsWith(whitelistedDomain)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     private Proxy proxy;
 
@@ -192,42 +135,10 @@ public class SessionService {
      * @param requireSecure Whether to require the textures to be securely signed.
      * @return The given profile, after filling in its textures.
      * @throws PropertyException If an error occurs while retrieving the profile's textures.
+     * @deprecated Textures are now parsed by GameProfile.getTextures. This method is now a no-op and will be removed.
      */
+    @Deprecated
     public GameProfile fillProfileTextures(GameProfile profile, boolean requireSecure) throws PropertyException {
-        Map<GameProfile.TextureType, GameProfile.Texture> textureMap = null;
-
-        GameProfile.Property textures = profile.getProperty("textures");
-        if(textures != null) {
-            if(requireSecure) {
-                if(!textures.hasSignature()) {
-                    throw new ProfileTextureException("Signature is missing from textures payload.");
-                }
-
-                if(!textures.isSignatureValid(SIGNATURE_KEY)) {
-                    throw new ProfileTextureException("Textures payload has been tampered with. (signature invalid)");
-                }
-            }
-
-            MinecraftTexturesPayload result;
-            try {
-                String json = new String(Base64.decode(textures.getValue().getBytes(StandardCharsets.UTF_8)));
-                result = GSON.fromJson(json, MinecraftTexturesPayload.class);
-            } catch(Exception e) {
-                throw new ProfileTextureException("Could not decode texture payload.", e);
-            }
-
-            if(result != null && result.textures != null) {
-                for(GameProfile.Texture texture : result.textures.values()) {
-                    if (!isWhitelistedDomain(texture.getURL())) {
-                        throw new ProfileTextureException("Textures payload has been tampered with. (non-whitelisted domain)");
-                    }
-                }
-
-                textureMap = result.textures;
-            }
-        }
-
-        profile.setTextures(textureMap);
         return profile;
     }
 
@@ -257,13 +168,5 @@ public class SessionService {
         public UUID id;
         public String name;
         public List<GameProfile.Property> properties;
-    }
-
-    private static class MinecraftTexturesPayload {
-        public long timestamp;
-        public UUID profileId;
-        public String profileName;
-        public boolean isPublic;
-        public Map<GameProfile.TextureType, GameProfile.Texture> textures;
     }
 }

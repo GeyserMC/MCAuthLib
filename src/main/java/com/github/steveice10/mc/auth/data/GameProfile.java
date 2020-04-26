@@ -1,11 +1,25 @@
 package com.github.steveice10.mc.auth.data;
 
+import com.github.steveice10.mc.auth.exception.property.ProfileTextureException;
+import com.github.steveice10.mc.auth.exception.property.PropertyException;
 import com.github.steveice10.mc.auth.exception.property.SignatureValidateException;
+import com.github.steveice10.mc.auth.service.SessionService;
 import com.github.steveice10.mc.auth.util.Base64;
+import com.github.steveice10.mc.auth.util.UUIDSerializer;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +31,48 @@ import java.util.UUID;
  * Information about a user profile.
  */
 public class GameProfile {
+    private static final String[] WHITELISTED_DOMAINS = { ".minecraft.net", ".mojang.com" };
+    private static final PublicKey SIGNATURE_KEY;
+    private static final Gson GSON;
+
+    static {
+        try(InputStream in = SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der")) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+            byte[] buffer = new byte[4096];
+            int length = -1;
+            while((length = in.read(buffer)) != -1) {
+                out.write(buffer, 0, length);
+            }
+
+            out.close();
+
+            SIGNATURE_KEY = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(out.toByteArray()));
+        } catch(Exception e) {
+            throw new ExceptionInInitializerError("Missing/invalid yggdrasil public key.");
+        }
+
+        GSON = new GsonBuilder().registerTypeAdapter(UUID.class, new UUIDSerializer()).create();
+    }
+
+    private static boolean isWhitelistedDomain(String url) {
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid URL \"" + url + "\".");
+        }
+
+        String domain = uri.getHost();
+        for(String whitelistedDomain : WHITELISTED_DOMAINS) {
+            if(domain.endsWith(whitelistedDomain)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private UUID id;
     private String name;
 
@@ -134,30 +190,58 @@ public class GameProfile {
      * Gets an immutable map of texture types to textures contained in the profile.
      *
      * @return The profile's textures.
+     * @throws PropertyException If an error occurs decoding the profile's texture property.
      */
-    public Map<TextureType, Texture> getTextures() {
-        if(this.textures == null) {
-            this.textures = new HashMap<>();
-        }
-
-        return Collections.unmodifiableMap(this.textures);
+    public Map<TextureType, Texture> getTextures() throws PropertyException {
+        return this.getTextures(true);
     }
 
     /**
-     * Sets the textures of this profile.
+     * Gets an immutable map of texture types to textures contained in the profile.
      *
-     * @param textures Textures belonging to this profile.
+     * @param requireSecure Whether to require the profile's texture payload to be securely signed.
+     * @return The profile's textures.
+     * @throws PropertyException If an error occurs decoding the profile's texture property.
      */
-    public void setTextures(Map<TextureType, Texture> textures) {
+    public Map<TextureType, Texture> getTextures(boolean requireSecure) throws PropertyException {
         if(this.textures == null) {
-            this.textures = new HashMap<>();
-        } else {
-            this.textures.clear();
+            GameProfile.Property textures = this.getProperty("textures");
+            if(textures != null) {
+                this.textures = Collections.emptyMap();
+                
+                if(requireSecure) {
+                    if(!textures.hasSignature()) {
+                        throw new ProfileTextureException("Signature is missing from textures payload.");
+                    }
+
+                    if(!textures.isSignatureValid(SIGNATURE_KEY)) {
+                        throw new ProfileTextureException("Textures payload has been tampered with. (signature invalid)");
+                    }
+                }
+
+                MinecraftTexturesPayload result;
+                try {
+                    String json = new String(Base64.decode(textures.getValue().getBytes(StandardCharsets.UTF_8)));
+                    result = GSON.fromJson(json, MinecraftTexturesPayload.class);
+                } catch(Exception e) {
+                    throw new ProfileTextureException("Could not decode texture payload.", e);
+                }
+
+                if(result != null && result.textures != null) {
+                    for(GameProfile.Texture texture : result.textures.values()) {
+                        if (!isWhitelistedDomain(texture.getURL())) {
+                            throw new ProfileTextureException("Textures payload has been tampered with. (non-whitelisted domain)");
+                        }
+                    }
+
+                    this.textures = result.textures;
+                }
+            } else {
+                return Collections.emptyMap();
+            }
         }
 
-        if(textures != null) {
-            this.textures.putAll(textures);
-        }
+        return Collections.unmodifiableMap(this.textures);
     }
 
     /**
@@ -165,8 +249,9 @@ public class GameProfile {
      *
      * @param type Type of texture to get.
      * @return The texture of the specified type.
+     * @throws PropertyException If an error occurs decoding the profile's texture property.
      */
-    public Texture getTexture(TextureType type) {
+    public Texture getTexture(TextureType type) throws PropertyException {
         return this.getTextures().get(type);
     }
 
@@ -191,7 +276,7 @@ public class GameProfile {
 
     @Override
     public String toString() {
-        return "GameProfile{id=" + this.id + ", name=" + this.name + ", properties=" + this.getProperties() + ", textures=" + this.getTextures() + "}";
+        return "GameProfile{id=" + this.id + ", name=" + this.name + ", properties=" + this.getProperties() + "}";
     }
 
     /**
@@ -372,5 +457,13 @@ public class GameProfile {
         public String toString() {
             return "ProfileTexture{url=" + this.url + ", model=" + this.getModel() + ", hash=" + this.getHash() + "}";
         }
+    }
+
+    private static class MinecraftTexturesPayload {
+        public long timestamp;
+        public UUID profileId;
+        public String profileName;
+        public boolean isPublic;
+        public Map<GameProfile.TextureType, GameProfile.Texture> textures;
     }
 }
