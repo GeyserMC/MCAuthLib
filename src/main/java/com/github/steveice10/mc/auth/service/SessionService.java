@@ -4,14 +4,13 @@ import com.github.steveice10.mc.auth.data.GameProfile;
 import com.github.steveice10.mc.auth.exception.profile.ProfileException;
 import com.github.steveice10.mc.auth.exception.profile.ProfileLookupException;
 import com.github.steveice10.mc.auth.exception.profile.ProfileNotFoundException;
-import com.github.steveice10.mc.auth.exception.property.PropertyException;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.util.HTTP;
 import com.github.steveice10.mc.auth.util.UUIDSerializer;
 
 import javax.crypto.SecretKey;
 import java.math.BigInteger;
-import java.net.Proxy;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,32 +21,17 @@ import java.util.UUID;
 /**
  * Service used for session-related queries.
  */
-public class SessionService {
-    private static final String BASE_URL = "https://sessionserver.mojang.com/session/minecraft/";
-    private static final String JOIN_URL = BASE_URL + "join";
-    private static final String HAS_JOINED_URL = BASE_URL + "hasJoined";
-    private static final String PROFILE_URL = BASE_URL + "profile";
-
-    private Proxy proxy;
+public class SessionService extends Service {
+    private static final URI DEFAULT_BASE_URI = URI.create("https://sessionserver.mojang.com/session/minecraft/");
+    private static final String JOIN_ENDPOINT = "join";
+    private static final String HAS_JOINED_ENDPOINT = "hasJoined";
+    private static final String PROFILE_ENDPOINT = "profile";
 
     /**
      * Creates a new SessionService instance.
      */
     public SessionService() {
-        this(Proxy.NO_PROXY);
-    }
-
-    /**
-     * Creates a new SessionService instance.
-     *
-     * @param proxy Proxy to use when making HTTP requests.
-     */
-    public SessionService(Proxy proxy) {
-        if(proxy == null) {
-            throw new IllegalArgumentException("Proxy cannot be null.");
-        }
-
-        this.proxy = proxy;
+        super(DEFAULT_BASE_URI);
     }
 
     /**
@@ -81,7 +65,7 @@ public class SessionService {
      */
     public void joinServer(GameProfile profile, String authenticationToken, String serverId) throws RequestException {
         JoinServerRequest request = new JoinServerRequest(authenticationToken, profile.getId(), serverId);
-        HTTP.makeRequest(this.proxy, JOIN_URL, request, null);
+        HTTP.makeRequest(this.getProxy(), this.getEndpointUri(JOIN_ENDPOINT), request, null);
     }
 
     /**
@@ -93,7 +77,7 @@ public class SessionService {
      * @throws RequestException If an error occurs while making the request.
      */
     public GameProfile getProfileByServer(String name, String serverId) throws RequestException {
-        HasJoinedResponse response = HTTP.makeRequest(this.proxy, HAS_JOINED_URL + "?username=" + name + "&serverId=" + serverId, null, HasJoinedResponse.class);
+        HasJoinedResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(HAS_JOINED_ENDPOINT, "username=" + name + "&serverId=" + serverId), null, HasJoinedResponse.class);
         if(response != null && response.id != null) {
             GameProfile result = new GameProfile(response.id, name);
             result.setProperties(response.properties);
@@ -116,7 +100,7 @@ public class SessionService {
         }
 
         try {
-            MinecraftProfileResponse response = HTTP.makeRequest(this.proxy, PROFILE_URL + "/" + UUIDSerializer.fromUUID(profile.getId()) + "?unsigned=false", null, MinecraftProfileResponse.class);
+            MinecraftProfileResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(PROFILE_ENDPOINT + "/" + UUIDSerializer.fromUUID(profile.getId()), "unsigned=false"), null, MinecraftProfileResponse.class);
             if(response == null) {
                 throw new ProfileNotFoundException("Couldn't fetch profile properties for " + profile + " as the profile does not exist.");
             }
@@ -126,20 +110,6 @@ public class SessionService {
         } catch(RequestException e) {
             throw new ProfileLookupException("Couldn't look up profile properties for " + profile + ".", e);
         }
-    }
-
-    /**
-     * Fills in the textures of a profile.
-     *
-     * @param profile       Profile to fill in the textures of.
-     * @param requireSecure Whether to require the textures to be securely signed.
-     * @return The given profile, after filling in its textures.
-     * @throws PropertyException If an error occurs while retrieving the profile's textures.
-     * @deprecated Textures are now parsed by GameProfile.getTextures. This method is now a no-op and will be removed.
-     */
-    @Deprecated
-    public GameProfile fillProfileTextures(GameProfile profile, boolean requireSecure) throws PropertyException {
-        return profile;
     }
 
     @Override

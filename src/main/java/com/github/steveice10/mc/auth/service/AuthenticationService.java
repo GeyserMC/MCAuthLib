@@ -5,7 +5,7 @@ import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsExcepti
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.util.HTTP;
 
-import java.net.Proxy;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,14 +15,13 @@ import java.util.UUID;
 /**
  * Service used for authenticating users.
  */
-public class AuthenticationService {
-    private static final String BASE_URL = "https://authserver.mojang.com/";
-    private static final String AUTHENTICATE_URL = BASE_URL + "authenticate";
-    private static final String REFRESH_URL = BASE_URL + "refresh";
-    private static final String INVALIDATE_URL = BASE_URL + "invalidate";
+public class AuthenticationService extends Service {
+    private static final URI DEFAULT_BASE_URI = URI.create("https://authserver.mojang.com/");
+    private static final String AUTHENTICATE_ENDPOINT = "authenticate";
+    private static final String REFRESH_ENDPOINT = "refresh";
+    private static final String INVALIDATE_ENDPOINT = "invalidate";
 
     private String clientToken;
-    private Proxy proxy;
 
     private String username;
     private String password;
@@ -30,8 +29,8 @@ public class AuthenticationService {
 
     private boolean loggedIn;
     private String id;
-    private List<GameProfile.Property> properties = new ArrayList<GameProfile.Property>();
-    private List<GameProfile> profiles = new ArrayList<GameProfile>();
+    private List<GameProfile.Property> properties = new ArrayList<>();
+    private List<GameProfile> profiles = new ArrayList<>();
     private GameProfile selectedProfile;
 
     /**
@@ -44,38 +43,16 @@ public class AuthenticationService {
     /**
      * Creates a new AuthenticationService instance.
      *
-     * @param proxy Proxy to use when making HTTP requests.
-     */
-    public AuthenticationService(Proxy proxy) {
-        this(UUID.randomUUID().toString(), proxy);
-    }
-
-    /**
-     * Creates a new AuthenticationService instance.
-     *
      * @param clientToken Client token to use when making authentication requests.
      */
     public AuthenticationService(String clientToken) {
-        this(clientToken, Proxy.NO_PROXY);
-    }
+        super(DEFAULT_BASE_URI);
 
-    /**
-     * Creates a new AuthenticationService instance.
-     *
-     * @param clientToken Client token to use when making authentication requests.
-     * @param proxy       Proxy to use when making HTTP requests.
-     */
-    public AuthenticationService(String clientToken, Proxy proxy) {
         if(clientToken == null) {
             throw new IllegalArgumentException("ClientToken cannot be null.");
         }
 
-        if(proxy == null) {
-            throw new IllegalArgumentException("Proxy cannot be null.");
-        }
-
         this.clientToken = clientToken;
-        this.proxy = proxy;
     }
 
     /**
@@ -138,7 +115,7 @@ public class AuthenticationService {
      * @return The user's properties.
      */
     public List<GameProfile.Property> getProperties() {
-        return this.isLoggedIn() ? new ArrayList<GameProfile.Property>(this.properties) : Collections.<GameProfile.Property>emptyList();
+        return Collections.unmodifiableList(this.properties);
     }
 
     /**
@@ -147,7 +124,7 @@ public class AuthenticationService {
      * @return The user's available profiles.
      */
     public List<GameProfile> getAvailableProfiles() {
-        return this.profiles;
+        return Collections.unmodifiableList(this.profiles);
     }
 
     /**
@@ -200,23 +177,52 @@ public class AuthenticationService {
 
     /**
      * Logs the service in.
+     * The current access token will be used if set. Otherwise, password-based authentication will be used.
      *
      * @throws RequestException If an error occurs while making the request.
      */
     public void login() throws RequestException {
         if(this.username == null || this.username.equals("")) {
             throw new InvalidCredentialsException("Invalid username.");
-        } else {
-            if(this.accessToken != null && !this.accessToken.equals("")) {
-                this.loginWithToken();
-            } else {
-                if(this.password == null || this.password.equals("")) {
-                    throw new InvalidCredentialsException("Invalid password.");
-                }
-
-                this.loginWithPassword();
-            }
         }
+
+        boolean token = this.accessToken != null && !this.accessToken.equals("");
+        boolean password = this.password != null && !this.password.equals("");
+        if(!token && !password) {
+            throw new InvalidCredentialsException("Invalid password or access token.");
+        }
+
+        AuthenticateRefreshResponse response;
+        if(token) {
+            RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, null);
+            response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(REFRESH_ENDPOINT), request, AuthenticateRefreshResponse.class);
+        } else {
+            AuthenticationRequest request = new AuthenticationRequest(this.username, this.password, this.clientToken);
+            response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(AUTHENTICATE_ENDPOINT), request, AuthenticateRefreshResponse.class);
+        }
+
+        if(response == null) {
+            throw new RequestException("Server returned invalid response.");
+        } else if(!response.clientToken.equals(this.clientToken)) {
+            throw new RequestException("Server responded with incorrect client token.");
+        }
+
+        if(response.user != null && response.user.id != null) {
+            this.id = response.user.id;
+        } else {
+            this.id = this.username;
+        }
+
+        this.accessToken = response.accessToken;
+        this.profiles = response.availableProfiles != null ? Arrays.asList(response.availableProfiles) : Collections.<GameProfile>emptyList();
+        this.selectedProfile = response.selectedProfile;
+
+        this.properties.clear();
+        if(response.user != null && response.user.properties != null) {
+            this.properties.addAll(response.user.properties);
+        }
+
+        this.loggedIn = true;
     }
 
     /**
@@ -230,7 +236,7 @@ public class AuthenticationService {
         }
 
         InvalidateRequest request = new InvalidateRequest(this.clientToken, this.accessToken);
-        HTTP.makeRequest(this.proxy, INVALIDATE_URL, request);
+        HTTP.makeRequest(this.getProxy(), this.getEndpointUri(INVALIDATE_ENDPOINT), request);
 
         this.accessToken = null;
         this.loggedIn = false;
@@ -251,87 +257,25 @@ public class AuthenticationService {
             throw new RequestException("Cannot change game profile while not logged in.");
         } else if(this.selectedProfile != null) {
             throw new RequestException("Cannot change game profile when it is already selected.");
-        } else if(profile != null && this.profiles.contains(profile)) {
-            RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, profile);
-            RefreshResponse response = HTTP.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
-            if(response.clientToken.equals(this.clientToken)) {
-                this.accessToken = response.accessToken;
-                this.selectedProfile = response.selectedProfile;
-            } else {
-                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
-            }
-        } else {
+        } else if(profile == null || !this.profiles.contains(profile)) {
             throw new IllegalArgumentException("Invalid profile '" + profile + "'.");
         }
+
+        RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, profile);
+        AuthenticateRefreshResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(REFRESH_ENDPOINT), request, AuthenticateRefreshResponse.class);
+        if(response == null) {
+            throw new RequestException("Server returned invalid response.");
+        } else if(!response.clientToken.equals(this.clientToken)) {
+            throw new RequestException("Server responded with incorrect client token.");
+        }
+
+        this.accessToken = response.accessToken;
+        this.selectedProfile = response.selectedProfile;
     }
 
     @Override
     public String toString() {
         return "UserAuthentication{clientToken=" + this.clientToken + ", username=" + this.username + ", accessToken=" + this.accessToken + ", loggedIn=" + this.loggedIn + ", profiles=" + this.profiles + ", selectedProfile=" + this.selectedProfile + "}";
-    }
-
-    private void loginWithPassword() throws RequestException {
-        if(this.username == null || this.username.isEmpty()) {
-            throw new InvalidCredentialsException("Invalid username.");
-        } else if(this.password == null || this.password.isEmpty()) {
-            throw new InvalidCredentialsException("Invalid password.");
-        } else {
-            AuthenticationRequest request = new AuthenticationRequest(this.username, this.password, this.clientToken);
-            AuthenticationResponse response = HTTP.makeRequest(this.proxy, AUTHENTICATE_URL, request, AuthenticationResponse.class);
-            if(response.clientToken.equals(this.clientToken)) {
-                if(response.user != null && response.user.id != null) {
-                    this.id = response.user.id;
-                } else {
-                    this.id = this.username;
-                }
-
-                this.loggedIn = true;
-                this.accessToken = response.accessToken;
-                this.profiles = response.availableProfiles != null ? Arrays.asList(response.availableProfiles) : Collections.<GameProfile>emptyList();
-                this.selectedProfile = response.selectedProfile;
-                this.properties.clear();
-                if(response.user != null && response.user.properties != null) {
-                    this.properties.addAll(response.user.properties);
-                }
-            } else {
-                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
-            }
-        }
-    }
-
-    private void loginWithToken() throws RequestException {
-        if(this.id == null || this.id.isEmpty()) {
-            if(this.username == null || this.username.isEmpty()) {
-                throw new InvalidCredentialsException("Invalid uuid and username.");
-            }
-
-            this.id = this.username;
-        }
-
-        if(this.accessToken == null || this.accessToken.equals("")) {
-            throw new InvalidCredentialsException("Invalid access token.");
-        } else {
-            RefreshRequest request = new RefreshRequest(this.clientToken, this.accessToken, null);
-            RefreshResponse response = HTTP.makeRequest(this.proxy, REFRESH_URL, request, RefreshResponse.class);
-            if(response.clientToken.equals(this.clientToken)) {
-                if(response.user != null && response.user.id != null) {
-                    this.id = response.user.id;
-                } else {
-                    this.id = this.username;
-                }
-
-                this.loggedIn = true;
-                this.accessToken = response.accessToken;
-                this.profiles = response.availableProfiles != null ? Arrays.asList(response.availableProfiles) : Collections.<GameProfile>emptyList();
-                this.selectedProfile = response.selectedProfile;
-                this.properties.clear();
-                if(response.user != null && response.user.properties != null) {
-                    this.properties.addAll(response.user.properties);
-                }
-            } else {
-                throw new RequestException("Server requested we change our client token. Don't know how to handle this!");
-            }
-        }
     }
 
     private static class Agent {
@@ -389,15 +333,7 @@ public class AuthenticationService {
         }
     }
 
-    private static class AuthenticationResponse {
-        public String accessToken;
-        public String clientToken;
-        public GameProfile selectedProfile;
-        public GameProfile[] availableProfiles;
-        public User user;
-    }
-
-    private static class RefreshResponse {
+    private static class AuthenticateRefreshResponse {
         public String accessToken;
         public String clientToken;
         public GameProfile selectedProfile;

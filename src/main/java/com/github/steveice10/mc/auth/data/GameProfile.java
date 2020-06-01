@@ -19,7 +19,6 @@ import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -476,7 +475,7 @@ public class GameProfile {
 
         @Override
         public String toString() {
-            return "ProfileTexture{url=" + this.url + ", model=" + this.getModel() + ", hash=" + this.getHash() + "}";
+            return "Texture{url=" + this.url + ", model=" + this.getModel() + ", hash=" + this.getHash() + "}";
         }
     }
 

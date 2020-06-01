@@ -9,14 +9,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -36,188 +36,108 @@ public class HTTP {
      * Makes an HTTP request.
      *
      * @param proxy Proxy to use when making the request.
-     * @param url   URL to make the request to.
+     * @param uri   URI to make the request to.
      * @param input Input to provide in the request.
+     * @throws IllegalArgumentException If the given proxy or URI is null.
      * @throws RequestException If an error occurs while making the request.
      */
-    public static void makeRequest(Proxy proxy, String url, Object input) throws RequestException {
-        makeRequest(proxy, url, input, null);
+    public static void makeRequest(Proxy proxy, URI uri, Object input) throws RequestException {
+        makeRequest(proxy, uri, input, null);
     }
 
     /**
      * Makes an HTTP request.
      *
-     * @param proxy Proxy to use when making the request.
-     * @param url   URL to make the request to.
-     * @param input Input to provide in the request.
-     * @param clazz Class to provide the response as.
-     * @param <T>   Type to provide the response as.
+     * @param proxy        Proxy to use when making the request.
+     * @param uri          URI to make the request to.
+     * @param input        Input to provide in the request.
+     * @param responseType Class to provide the response as.
+     * @param <T>          Type to provide the response as.
      * @return The response of the request.
+     * @throws IllegalArgumentException If the given proxy or URI is null.
      * @throws RequestException If an error occurs while making the request.
      */
-    public static <T> T makeRequest(Proxy proxy, String url, Object input, Class<T> clazz) throws RequestException {
-        JsonElement response = null;
+    public static <T> T makeRequest(Proxy proxy, URI uri, Object input, Class<T> responseType) throws RequestException {
+        if(proxy == null) {
+            throw new IllegalArgumentException("Proxy cannot be null.");
+        } else if(uri == null) {
+            throw new IllegalArgumentException("URI cannot be null.");
+        }
+
+        JsonElement response;
         try {
-            String jsonString = input == null ? performGetRequest(proxy, url) : performPostRequest(proxy, url, GSON.toJson(input), "application/json");
-            response = GSON.fromJson(jsonString, JsonElement.class);
-        } catch(Exception e) {
-            throw new ServiceUnavailableException("Could not make request to '" + url + "'.", e);
+            response = input == null ? performGetRequest(proxy, uri) : performPostRequest(proxy, uri, GSON.toJson(input), "application/json");
+        } catch(IOException e) {
+            throw new ServiceUnavailableException("Could not make request to '" + uri + "'.", e);
         }
 
         if(response != null) {
-            if(response.isJsonObject()) {
-                JsonObject object = response.getAsJsonObject();
-                if(object.has("error")) {
-                    String error = object.get("error").getAsString();
-                    String cause = object.has("cause") ? object.get("cause").getAsString() : "";
-                    String errorMessage = object.has("errorMessage") ? object.get("errorMessage").getAsString() : "";
-                    if(!error.equals("")) {
-                        if(error.equals("ForbiddenOperationException")) {
-                            if(cause != null && cause.equals("UserMigratedException")) {
-                                throw new UserMigratedException(errorMessage);
-                            } else {
-                                throw new InvalidCredentialsException(errorMessage);
-                            }
-                        } else {
-                            throw new RequestException(errorMessage);
-                        }
-                    }
-                }
-            }
+            checkForError(response);
 
-            if(clazz != null) {
-                return GSON.fromJson(response, clazz);
+            if(responseType != null) {
+                return GSON.fromJson(response, responseType);
             }
         }
 
         return null;
     }
 
-    private static HttpURLConnection createUrlConnection(Proxy proxy, String url) throws IOException {
-        if(proxy == null) {
-            throw new IllegalArgumentException("Proxy cannot be null.");
+    private static void checkForError(JsonElement response) throws RequestException {
+        if(response.isJsonObject()) {
+            JsonObject object = response.getAsJsonObject();
+            if(object.has("error")) {
+                String error = object.get("error").getAsString();
+                String cause = object.has("cause") ? object.get("cause").getAsString() : "";
+                String errorMessage = object.has("errorMessage") ? object.get("errorMessage").getAsString() : "";
+                if(!error.equals("")) {
+                    if(error.equals("ForbiddenOperationException")) {
+                        if(cause != null && cause.equals("UserMigratedException")) {
+                            throw new UserMigratedException(errorMessage);
+                        } else {
+                            throw new InvalidCredentialsException(errorMessage);
+                        }
+                    } else {
+                        throw new RequestException(errorMessage);
+                    }
+                }
+            }
+        }
+    }
+
+    private static JsonElement performGetRequest(Proxy proxy, URI uri) throws IOException {
+        HttpURLConnection connection = createUrlConnection(proxy, uri);
+        connection.setDoInput(true);
+
+        return processResponse(connection);
+    }
+
+    private static JsonElement performPostRequest(Proxy proxy, URI uri, String post, String type) throws IOException {
+        byte[] bytes = post.getBytes(StandardCharsets.UTF_8);
+
+        HttpURLConnection connection = createUrlConnection(proxy, uri);
+        connection.setRequestProperty("Content-Type", type + "; charset=utf-8");
+        connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
+        connection.setDoInput(true);
+        connection.setDoOutput(true);
+
+        try(OutputStream out = connection.getOutputStream()) {
+            out.write(bytes);
         }
 
-        if(url == null) {
-            throw new IllegalArgumentException("URL cannot be null.");
-        }
+        return processResponse(connection);
+    }
 
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection(proxy);
+    private static HttpURLConnection createUrlConnection(Proxy proxy, URI uri) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection(proxy);
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(15000);
         connection.setUseCaches(false);
         return connection;
     }
 
-    private static String performGetRequest(Proxy proxy, String url) throws IOException {
-        if(proxy == null) {
-            throw new IllegalArgumentException("Proxy cannot be null.");
-        }
-
-        if(url == null) {
-            throw new IllegalArgumentException("URL cannot be null.");
-        }
-
-        HttpURLConnection connection = createUrlConnection(proxy, url);
-        connection.setDoInput(true);
-
-        InputStream in = null;
-        try {
-            int responseCode = connection.getResponseCode();
-            if(responseCode == 200) {
-                in = connection.getInputStream();
-            } else {
-                in = connection.getErrorStream();
-            }
-
-            if(in != null) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-                StringBuilder result = new StringBuilder();
-                String line = null;
-                while((line = reader.readLine()) != null) {
-                    result.append(line).append("\n");
-                }
-
-                return result.toString();
-            } else {
-                return "";
-            }
-        } finally {
-            if(in != null) {
-                try {
-                    in.close();
-                } catch(IOException e) {
-                }
-            }
-        }
-    }
-
-    private static String performPostRequest(Proxy proxy, String url, String post, String type) throws IOException {
-        if(proxy == null) {
-            throw new IllegalArgumentException("Proxy cannot be null.");
-        }
-
-        if(url == null) {
-            throw new IllegalArgumentException("URL cannot be null.");
-        }
-
-        if(post == null) {
-            throw new IllegalArgumentException("Post cannot be null.");
-        }
-
-        if(type == null) {
-            throw new IllegalArgumentException("Type cannot be null.");
-        }
-
-        byte[] bytes = post.getBytes("UTF-8");
-
-        HttpURLConnection connection = createUrlConnection(proxy, url);
-        connection.setRequestProperty("Content-Type", type + "; charset=utf-8");
-        connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
-        connection.setDoInput(true);
-        connection.setDoOutput(true);
-
-        OutputStream out = null;
-        try {
-            out = connection.getOutputStream();
-            out.write(bytes);
-        } finally {
-            if(out != null) {
-                try {
-                    out.close();
-                } catch(IOException e) {
-                }
-            }
-        }
-
-        InputStream in = null;
-        try {
-            int responseCode = connection.getResponseCode();
-            if(responseCode == 200) {
-                in = connection.getInputStream();
-            } else {
-                in = connection.getErrorStream();
-            }
-
-            if(in != null) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-                StringBuilder result = new StringBuilder();
-                String line = null;
-                while((line = reader.readLine()) != null) {
-                    result.append(line).append("\n");
-                }
-
-                return result.toString();
-            } else {
-                return "";
-            }
-        } finally {
-            if(in != null) {
-                try {
-                    in.close();
-                } catch(IOException e) {
-                }
-            }
+    private static JsonElement processResponse(HttpURLConnection connection) throws IOException {
+        try(InputStream in = connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()) {
+            return in != null ? GSON.fromJson(new InputStreamReader(in), JsonElement.class) : null;
         }
     }
 }
