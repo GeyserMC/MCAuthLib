@@ -1,22 +1,19 @@
 package com.github.steveice10.mc.auth.util;
 
-import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsException;
-import com.github.steveice10.mc.auth.exception.request.RequestException;
-import com.github.steveice10.mc.auth.exception.request.ServiceUnavailableException;
-import com.github.steveice10.mc.auth.exception.request.UserMigratedException;
+import com.github.steveice10.mc.auth.exception.request.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import jdk.nashorn.internal.objects.NativeArray;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.Proxy;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -82,6 +79,56 @@ public class HTTP {
         return null;
     }
 
+    /**
+     * Makes an HTTP request as a from.
+     *
+     * @param proxy        Proxy to use when making the request.
+     * @param uri          URI to make the request to.
+     * @param input        Input to provide in the request.
+     * @param responseType Class to provide the response as.
+     * @param <T>          Type to provide the response as.
+     * @return The response of the request.
+     * @throws IllegalArgumentException If the given proxy or URI is null.
+     * @throws RequestException If an error occurs while making the request.
+     */
+    public static <T> T makeRequestForm(Proxy proxy, URI uri, Map<String, String> input, Class<T> responseType) throws RequestException {
+        if(proxy == null) {
+            throw new IllegalArgumentException("Proxy cannot be null.");
+        } else if(uri == null) {
+            throw new IllegalArgumentException("URI cannot be null.");
+        }
+
+        StringBuilder inputString = new StringBuilder();
+        for (Map.Entry<String, String> inputField : input.entrySet()) {
+            if (inputString.length() > 0) {
+                inputString.append("&");
+            }
+
+            try {
+                inputString.append(URLEncoder.encode(inputField.getKey(), StandardCharsets.UTF_8.toString()));
+                inputString.append("=");
+                inputString.append(URLEncoder.encode(inputField.getValue(), StandardCharsets.UTF_8.toString()));
+            } catch (UnsupportedEncodingException ignored) { }
+        }
+
+        JsonElement response;
+        try {
+            response = performPostRequest(proxy, uri, inputString.toString(), "application/x-www-form-urlencoded");
+        } catch(IOException e) {
+            throw new ServiceUnavailableException("Could not make request to '" + uri + "'.", e);
+        }
+
+        if(response != null) {
+            checkForError(response);
+
+            if(responseType != null) {
+                return GSON.fromJson(response, responseType);
+            }
+        }
+
+        return null;
+    }
+
     private static void checkForError(JsonElement response) throws RequestException {
         if(response.isJsonObject()) {
             JsonObject object = response.getAsJsonObject();
@@ -89,13 +136,16 @@ public class HTTP {
                 String error = object.get("error").getAsString();
                 String cause = object.has("cause") ? object.get("cause").getAsString() : "";
                 String errorMessage = object.has("errorMessage") ? object.get("errorMessage").getAsString() : "";
+                errorMessage = object.has("error_description") ? object.get("error_description").getAsString() : errorMessage;
                 if(!error.equals("")) {
                     if(error.equals("ForbiddenOperationException")) {
-                        if(cause != null && cause.equals("UserMigratedException")) {
+                        if (cause != null && cause.equals("UserMigratedException")) {
                             throw new UserMigratedException(errorMessage);
                         } else {
                             throw new InvalidCredentialsException(errorMessage);
                         }
+                    } else if (error.equals("authorization_pending")) {
+                        throw new AuthPendingException(errorMessage);
                     } else {
                         throw new RequestException(errorMessage);
                     }
