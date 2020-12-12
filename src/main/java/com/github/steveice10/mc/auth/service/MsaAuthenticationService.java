@@ -1,12 +1,15 @@
 package com.github.steveice10.mc.auth.service;
 
+import com.github.steveice10.mc.auth.data.GameProfile;
 import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsException;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.util.HTTP;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class MsaAuthenticationService extends AuthenticationService {
     private static final URI MS_CODE_ENDPOINT = URI.create("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode");
@@ -14,6 +17,7 @@ public class MsaAuthenticationService extends AuthenticationService {
     private static final URI XBL_AUTH_ENDPOINT = URI.create("https://user.auth.xboxlive.com/user/authenticate");
     private static final URI XSTS_AUTH_ENDPOINT = URI.create("https://xsts.auth.xboxlive.com/xsts/authorize");
     private static final URI MC_LOGIN_ENDPOINT = URI.create("https://api.minecraftservices.com/authentication/login_with_xbox");
+    private static final URI MC_PROFILE_ENDPOINT = URI.create("https://api.minecraftservices.com/minecraft/profile");
 
     private static final URI EMPTY_URI = URI.create("");
 
@@ -29,15 +33,30 @@ public class MsaAuthenticationService extends AuthenticationService {
         this.deviceCode = deviceCode;
     }
 
+    /**
+     * Generate a single use code for Microsoft authentication
+     *
+     * @return The code along with other returned data
+     * @throws RequestException
+     */
     public MsCodeResponse getAuthCode() throws RequestException {
         if(this.clientToken == null) {
             throw new InvalidCredentialsException("Invalid client token.");
         }
         MsCodeRequest request = new MsCodeRequest(this.clientToken);
-        return HTTP.makeRequestForm(this.getProxy(), MS_CODE_ENDPOINT, request.toMap(), MsCodeResponse.class);
+        MsCodeResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_ENDPOINT, request.toMap(), MsCodeResponse.class);
+        this.deviceCode = response.device_code;
+        return response;
     }
 
-    public McLoginResponse getLoginResponseFromCode() throws RequestException {
+    /**
+     * Attempt to get the authentication data from the previously
+     * generated device code from {@link #getAuthCode()}
+     *
+     * @return The final Minecraft authentication data
+     * @throws RequestException
+     */
+    private McLoginResponse getLoginResponseFromCode() throws RequestException {
         if(this.deviceCode == null) {
             throw new InvalidCredentialsException("Invalid device code.");
         }
@@ -65,6 +84,22 @@ public class MsaAuthenticationService extends AuthenticationService {
         return HTTP.makeRequest(this.getProxy(), MC_LOGIN_ENDPOINT, mcRequest, McLoginResponse.class);
     }
 
+    /**
+     * Fetch the profile for the current account
+     *
+     * @throws RequestException
+     */
+    private void getProfile() throws RequestException {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Authorization", "Bearer " + this.accessToken);
+
+        McProfileResponse response = HTTP.makeRequest(this.getProxy(), MC_PROFILE_ENDPOINT, null, McProfileResponse.class, headers);
+
+        this.selectedProfile = new GameProfile(response.id, response.name);
+        this.profiles = Collections.singletonList(this.selectedProfile);
+        this.username = response.name;
+    }
+
     @Override
     public void login() throws RequestException {
         boolean token = this.clientToken != null && !this.clientToken.isEmpty();
@@ -86,8 +121,17 @@ public class MsaAuthenticationService extends AuthenticationService {
         if(response == null) {
             throw new RequestException("Invalid response received.");
         }
-        this.username = response.username;
         this.accessToken = response.access_token;
+        try {
+            getProfile();
+        } catch (RequestException ignored) {
+            // We are on a cracked account
+
+            if (this.username == null || this.username.isEmpty()) {
+                // Not sure what this username is but its sent back from the api
+                this.username = response.username;
+            }
+        }
         this.loggedIn = true;
     }
 
@@ -246,5 +290,20 @@ public class MsaAuthenticationService extends AuthenticationService {
         public String access_token;
         public String token_type;
         public int expires_in;
+    }
+
+    private static class McProfileResponse {
+        public UUID id;
+        public String name;
+        public Skin[] skins;
+        //public String capes; // Not sure on the datatype or response
+
+        private static class Skin {
+            public UUID id;
+            public String state;
+            public URI url;
+            public String variant;
+            public String alias;
+        }
     }
 }
