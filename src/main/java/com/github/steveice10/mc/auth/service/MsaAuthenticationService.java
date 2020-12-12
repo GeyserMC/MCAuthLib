@@ -71,7 +71,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         boolean device = this.deviceCode != null && !this.deviceCode.isEmpty();
         boolean password = this.password != null && !this.password.isEmpty();
         if(!token && !password) {
-            throw new InvalidCredentialsException("Invalid password, device code or access token.");
+            throw new InvalidCredentialsException("Invalid password or access token.");
         }
         if(password && (this.username == null || this.username.isEmpty())) {
             throw new InvalidCredentialsException("Invalid username.");
