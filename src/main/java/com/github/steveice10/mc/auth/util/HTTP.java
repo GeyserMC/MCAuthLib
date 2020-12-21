@@ -104,22 +104,11 @@ public class HTTP {
             throw new IllegalArgumentException("URI cannot be null.");
         }
 
-        StringBuilder inputString = new StringBuilder();
-        for (Map.Entry<String, String> inputField : input.entrySet()) {
-            if (inputString.length() > 0) {
-                inputString.append("&");
-            }
-
-            try {
-                inputString.append(URLEncoder.encode(inputField.getKey(), StandardCharsets.UTF_8.toString()));
-                inputString.append("=");
-                inputString.append(URLEncoder.encode(inputField.getValue(), StandardCharsets.UTF_8.toString()));
-            } catch (UnsupportedEncodingException ignored) { }
-        }
+        String inputString = formMapToString(input);
 
         JsonElement response;
         try {
-            response = performPostRequest(proxy, uri, new HashMap<String, String>(), inputString.toString(), "application/x-www-form-urlencoded");
+            response = performPostRequest(proxy, uri, new HashMap<String, String>(), inputString, "application/x-www-form-urlencoded");
         } catch(IOException e) {
             throw new ServiceUnavailableException("Could not make request to '" + uri + "'.", e);
         }
@@ -133,6 +122,23 @@ public class HTTP {
         }
 
         return null;
+    }
+
+    public static String formMapToString(Map<String, String> input) {
+        StringBuilder inputString = new StringBuilder();
+        for (Map.Entry<String, String> inputField : input.entrySet()) {
+            if (inputString.length() > 0) {
+                inputString.append("&");
+            }
+
+            try {
+                inputString.append(URLEncoder.encode(inputField.getKey(), StandardCharsets.UTF_8.toString()));
+                inputString.append("=");
+                inputString.append(URLEncoder.encode(inputField.getValue(), StandardCharsets.UTF_8.toString()));
+            } catch (UnsupportedEncodingException ignored) { }
+        }
+
+        return inputString.toString();
     }
 
     private static void checkForError(JsonElement response) throws RequestException {
@@ -189,7 +195,7 @@ public class HTTP {
         return processResponse(connection);
     }
 
-    private static HttpURLConnection createUrlConnection(Proxy proxy, URI uri) throws IOException {
+    public static HttpURLConnection createUrlConnection(Proxy proxy, URI uri) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection(proxy);
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(15000);

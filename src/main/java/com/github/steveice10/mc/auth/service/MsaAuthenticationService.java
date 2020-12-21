@@ -3,23 +3,37 @@ package com.github.steveice10.mc.auth.service;
 import com.github.steveice10.mc.auth.data.GameProfile;
 import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsException;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
+import com.github.steveice10.mc.auth.exception.request.ServiceUnavailableException;
 import com.github.steveice10.mc.auth.util.HTTP;
 
+import java.io.*;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MsaAuthenticationService extends AuthenticationService {
     private static final URI MS_CODE_ENDPOINT = URI.create("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode");
-    private static final URI MS_TOKEN_ENDPOINT = URI.create("https://login.microsoftonline.com/consumers/oauth2/v2.0/token");
+    private static final URI MS_CODE_TOKEN_ENDPOINT = URI.create("https://login.microsoftonline.com/consumers/oauth2/v2.0/token");
+    private static final URI MS_LOGIN_ENDPOINT = URI.create("https://login.live.com/oauth20_authorize.srf?redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=code&locale=en&client_id=00000000402b5328");
+    private static final URI MS_TOKEN_ENDPOINT = URI.create("https://login.live.com/oauth20_token.srf");
     private static final URI XBL_AUTH_ENDPOINT = URI.create("https://user.auth.xboxlive.com/user/authenticate");
     private static final URI XSTS_AUTH_ENDPOINT = URI.create("https://xsts.auth.xboxlive.com/xsts/authorize");
     private static final URI MC_LOGIN_ENDPOINT = URI.create("https://api.minecraftservices.com/authentication/login_with_xbox");
     private static final URI MC_PROFILE_ENDPOINT = URI.create("https://api.minecraftservices.com/minecraft/profile");
 
     private static final URI EMPTY_URI = URI.create("");
+
+    private static final Pattern PPFT_PATTERN = Pattern.compile("sFTTag:[ ]?'.*value=\"(.*)\"/>'");
+    private static final Pattern URL_POST_PATTERN = Pattern.compile("urlPost:[ ]?'(.+?(?='))");
+    private static final Pattern CODE_PATTERN = Pattern.compile("[?|&]code=([\\w.-]+)");
 
     private String deviceCode;
 
@@ -60,10 +74,104 @@ public class MsaAuthenticationService extends AuthenticationService {
         if(this.deviceCode == null) {
             throw new InvalidCredentialsException("Invalid device code.");
         }
-        MsTokenRequest request = new MsTokenRequest(this.clientToken, this.deviceCode);
+        MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientToken, this.deviceCode);
+        MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
+
+        return getLoginResponseFromToken("d=" + response.access_token);
+    }
+
+    private McLoginResponse getLoginResponseFromCreds(String username, String password) throws RequestException {
+        // TODO: Migrate alot of this to {@link HTTP}
+
+        String cookie = "";
+        String PPFT = "";
+        String urlPost = "";
+
+        try {
+            HttpURLConnection connection = HTTP.createUrlConnection(this.getProxy(), MS_LOGIN_ENDPOINT);
+            connection.setDoInput(true);
+            try (InputStream in = connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()) {
+                cookie = connection.getHeaderField("set-cookie");
+                String body = inputStreamToString(in);
+                Matcher m = PPFT_PATTERN.matcher(body);
+                if (m.find()) {
+                    PPFT = m.group(1);
+                } else {
+                    throw new ServiceUnavailableException("Could not parse response of '" + MS_LOGIN_ENDPOINT + "'.");
+                }
+
+                m = URL_POST_PATTERN.matcher(body);
+                if (m.find()) {
+                    urlPost = m.group(1);
+                } else {
+                    throw new ServiceUnavailableException("Could not parse response of '" + MS_LOGIN_ENDPOINT + "'.");
+                }
+            }
+        } catch (IOException e) {
+            throw new ServiceUnavailableException("Could not make request to '" + MS_LOGIN_ENDPOINT + "'.", e);
+        }
+
+        if (cookie.isEmpty() || PPFT.isEmpty() || urlPost.isEmpty()) {
+            throw new RequestException("Invalid response from '" + MS_LOGIN_ENDPOINT + "' missing one or more of cookie, PPFT or urlPost");
+        }
+
+        Map<String, String> map = new HashMap<>();
+
+        map.put("login", this.username);
+        map.put("loginfmt", this.username);
+        map.put("passwd", this.password);
+        map.put("PPFT", PPFT);
+
+        String postData = HTTP.formMapToString(map);
+        String code;
+
+        try {
+            byte[] bytes = postData.getBytes(StandardCharsets.UTF_8);
+
+            HttpURLConnection connection = HTTP.createUrlConnection(this.getProxy(), URI.create(urlPost));
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
+            connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
+            connection.setRequestProperty("Cookie", cookie);
+
+            connection.setDoInput(true);
+            connection.setDoOutput(true);
+
+            try(OutputStream out = connection.getOutputStream()) {
+                out.write(bytes);
+            }
+
+            if (connection.getResponseCode() != 200 || connection.getURL().toString().equals(urlPost)) {
+                // TODO: Get and parse the error from the site
+                // See https://github.com/XboxReplay/xboxlive-auth/blob/master/src/core/live/index.ts#L115
+                throw new InvalidCredentialsException("Invalid username and/or password");
+            }
+
+            Matcher m = CODE_PATTERN.matcher(URLDecoder.decode(connection.getURL().toString(), StandardCharsets.UTF_8.name()));
+            if (m.find()) {
+                code = m.group(1);
+            } else {
+                throw new ServiceUnavailableException("Could not parse response of '" + urlPost + "'.");
+            }
+        } catch (IOException e) {
+            throw new ServiceUnavailableException("Could not make request to '" + urlPost + "'.", e);
+        }
+
+        MsTokenRequest request = new MsTokenRequest(code);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
 
         return getLoginResponseFromToken(response.access_token);
+    }
+
+    private String inputStreamToString(InputStream inputStream) throws IOException {
+        StringBuilder textBuilder = new StringBuilder();
+        try (Reader reader = new BufferedReader(new InputStreamReader(inputStream, Charset.forName(StandardCharsets.UTF_8.name())))) {
+            int c = 0;
+            while ((c = reader.read()) != -1) {
+                textBuilder.append((char) c);
+            }
+        }
+
+        return textBuilder.toString();
     }
 
     /**
@@ -111,17 +219,23 @@ public class MsaAuthenticationService extends AuthenticationService {
         if(password && (this.username == null || this.username.isEmpty())) {
             throw new InvalidCredentialsException("Invalid username.");
         }
+        McLoginResponse response = null;
         if(password) {
-            // TODO: Password-based auth to generate token
-        }
-        if(!device) {
+            response = getLoginResponseFromCreds(this.username, this.password);
+        } else if(!device) {
             this.deviceCode = getAuthCode().device_code;
         }
-        McLoginResponse response = getLoginResponseFromCode();
+
+        if (!password) {
+            response = getLoginResponseFromCode();
+        }
+
         if(response == null) {
             throw new RequestException("Invalid response received.");
         }
+
         this.accessToken = response.access_token;
+
         try {
             getProfile();
         } catch (RequestException ignored) {
@@ -175,12 +289,12 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
     }
 
-    private static class MsTokenRequest {
+    private static class MsCodeTokenRequest {
         private String grant_type;
         private String client_id;
         private String device_code;
 
-        protected MsTokenRequest(String clientId, String deviceCode) {
+        protected MsCodeTokenRequest(String clientId, String deviceCode) {
             this.grant_type = "urn:ietf:params:oauth:grant-type:device_code";
             this.client_id = clientId;
             this.device_code = deviceCode;
@@ -192,6 +306,34 @@ public class MsaAuthenticationService extends AuthenticationService {
             map.put("grant_type", grant_type);
             map.put("client_id", client_id);
             map.put("device_code", device_code);
+
+            return map;
+        }
+    }
+
+    private static class MsTokenRequest {
+        private String client_id;
+        private String code;
+        private String grant_type;
+        private String redirect_uri;
+        private String scope;
+
+        protected MsTokenRequest(String code) {
+            this.client_id = "00000000402b5328";
+            this.code = code;
+            this.grant_type = "authorization_code";
+            this.redirect_uri = "https://login.live.com/oauth20_desktop.srf";
+            this.scope = "service::user.auth.xboxlive.com::MBI_SSL";
+        }
+
+        public Map<String, String> toMap() {
+            Map<String, String> map = new HashMap<>();
+
+            map.put("client_id", client_id);
+            map.put("code", code);
+            map.put("grant_type", grant_type);
+            map.put("redirect_uri", redirect_uri);
+            map.put("scope", scope);
 
             return map;
         }
@@ -216,7 +358,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             protected Properties(String accessToken) {
                 this.AuthMethod = "RPS";
                 this.SiteName = "user.auth.xboxlive.com";
-                this.RpsTicket = "d=" + accessToken;
+                this.RpsTicket = accessToken;
             }
         }
     }
@@ -265,7 +407,6 @@ public class MsaAuthenticationService extends AuthenticationService {
         public String scope;
         public int expires_in;
         public String access_token;
-        public String id_token;
         public String refresh_token;
     }
 
