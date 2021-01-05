@@ -36,14 +36,20 @@ public class MsaAuthenticationService extends AuthenticationService {
     private static final Pattern CODE_PATTERN = Pattern.compile("[?|&]code=([\\w.-]+)");
 
     private String deviceCode;
+    private String clientId;
 
     public MsaAuthenticationService(String clientId) {
         this(clientId, null);
     }
 
     public MsaAuthenticationService(String clientId, String deviceCode) {
-        super(clientId, EMPTY_URI);
+        super(EMPTY_URI);
 
+        if(clientId == null) {
+            throw new IllegalArgumentException("ClientId cannot be null.");
+        }
+
+        this.clientId = clientId;
         this.deviceCode = deviceCode;
     }
 
@@ -54,10 +60,10 @@ public class MsaAuthenticationService extends AuthenticationService {
      * @throws RequestException
      */
     public MsCodeResponse getAuthCode() throws RequestException {
-        if(this.clientToken == null) {
-            throw new InvalidCredentialsException("Invalid client token.");
+        if(this.clientId == null) {
+            throw new InvalidCredentialsException("Invalid client id.");
         }
-        MsCodeRequest request = new MsCodeRequest(this.clientToken);
+        MsCodeRequest request = new MsCodeRequest(this.clientId);
         MsCodeResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_ENDPOINT, request.toMap(), MsCodeResponse.class);
         this.deviceCode = response.device_code;
         return response;
@@ -74,7 +80,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         if(this.deviceCode == null) {
             throw new InvalidCredentialsException("Invalid device code.");
         }
-        MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientToken, this.deviceCode);
+        MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
 
         return getLoginResponseFromToken("d=" + response.access_token);
@@ -210,7 +216,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
     @Override
     public void login() throws RequestException {
-        boolean token = this.clientToken != null && !this.clientToken.isEmpty();
+        boolean token = this.clientId != null && !this.clientId.isEmpty();
         boolean device = this.deviceCode != null && !this.deviceCode.isEmpty();
         boolean password = this.password != null && !this.password.isEmpty();
         if(!token && !password) {
@@ -252,14 +258,14 @@ public class MsaAuthenticationService extends AuthenticationService {
     @Override
     public void logout() throws RequestException {
         super.logout();
-        this.clientToken = null;
+        this.clientId = null;
     }
 
     @Override
     public String toString() {
         return "MsaAuthenticationService{" +
                 "deviceCode='" + this.deviceCode + '\'' +
-                ", clientToken='" + this.clientToken + '\'' +
+                ", clientId='" + this.clientId + '\'' +
                 ", accessToken='" + this.accessToken + '\'' +
                 ", loggedIn=" + this.loggedIn +
                 ", username='" + this.username + '\'' +

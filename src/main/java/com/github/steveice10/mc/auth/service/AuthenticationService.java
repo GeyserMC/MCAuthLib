@@ -16,7 +16,6 @@ import java.util.UUID;
  * Service used for authenticating users.
  */
 public abstract class AuthenticationService extends Service {
-    protected String clientToken;
     protected String accessToken;
     protected boolean loggedIn;
     protected String username;
@@ -25,23 +24,8 @@ public abstract class AuthenticationService extends Service {
     protected List<GameProfile.Property> properties = new ArrayList<>();
     protected List<GameProfile> profiles = new ArrayList<>();
 
-    public AuthenticationService(String clientToken, URI defaultURI) {
+    public AuthenticationService(URI defaultURI) {
         super(defaultURI);
-
-        if(clientToken == null) {
-            throw new IllegalArgumentException("ClientToken cannot be null.");
-        }
-
-        this.clientToken = clientToken;
-    }
-
-    /**
-     * Gets the client token of the service.
-     *
-     * @return The service's client token.
-     */
-    public String getClientToken() {
-        return this.clientToken;
     }
 
     /**

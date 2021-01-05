@@ -18,6 +18,7 @@ public class MojangAuthenticationService extends AuthenticationService {
     private static final String INVALIDATE_ENDPOINT = "invalidate";
 
     private String id;
+    private String clientToken;
 
     /**
      * Creates a new AuthenticationService instance.
@@ -32,7 +33,7 @@ public class MojangAuthenticationService extends AuthenticationService {
      * @param clientToken Client token to use when making authentication requests.
      */
     public MojangAuthenticationService(String clientToken) {
-        super(clientToken, DEFAULT_BASE_URI);
+        super(DEFAULT_BASE_URI);
 
         if(clientToken == null) {
             throw new IllegalArgumentException("ClientToken cannot be null.");
@@ -48,6 +49,10 @@ public class MojangAuthenticationService extends AuthenticationService {
      */
     public String getId() {
         return this.id;
+    }
+
+    public String getClientToken() {
+        return clientToken;
     }
 
     @Override
