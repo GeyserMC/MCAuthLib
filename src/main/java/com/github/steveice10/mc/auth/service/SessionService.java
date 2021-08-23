@@ -15,7 +15,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -77,7 +80,11 @@ public class SessionService extends Service {
      * @throws RequestException If an error occurs while making the request.
      */
     public GameProfile getProfileByServer(String name, String serverId) throws RequestException {
-        HasJoinedResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(HAS_JOINED_ENDPOINT, "username=" + name + "&serverId=" + serverId), null, HasJoinedResponse.class);
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("username", name);
+        queryParams.put("serverId", serverId);
+
+        HasJoinedResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(HAS_JOINED_ENDPOINT, queryParams), null, HasJoinedResponse.class);
         if(response != null && response.id != null) {
             GameProfile result = new GameProfile(response.id, name);
             result.setProperties(response.properties);
@@ -100,7 +107,7 @@ public class SessionService extends Service {
         }
 
         try {
-            MinecraftProfileResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(PROFILE_ENDPOINT + "/" + UUIDSerializer.fromUUID(profile.getId()), "unsigned=false"), null, MinecraftProfileResponse.class);
+            MinecraftProfileResponse response = HTTP.makeRequest(this.getProxy(), this.getEndpointUri(PROFILE_ENDPOINT + "/" + UUIDSerializer.fromUUID(profile.getId()), Collections.singletonMap("unsigned", "false")), null, MinecraftProfileResponse.class);
             if(response == null) {
                 throw new ProfileNotFoundException("Couldn't fetch profile properties for " + profile + " as the profile does not exist.");
             }

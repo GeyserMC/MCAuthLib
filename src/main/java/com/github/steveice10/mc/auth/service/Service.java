@@ -1,8 +1,11 @@
 package com.github.steveice10.mc.auth.service;
 
+import java.io.UnsupportedEncodingException;
 import java.net.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.util.Map;
 
 /**
  * Base class for auth-related services.
@@ -80,12 +83,25 @@ public abstract class Service {
      * @param queryParams Query parameters to append to the URI.
      * @return The URI for the given endpoint.
      */
-    public URI getEndpointUri(String endpoint, String queryParams) {
+    public URI getEndpointUri(String endpoint, Map<String, String> queryParams) {
         URI base = this.getEndpointUri(endpoint);
         try {
-            return new URI(base.getScheme(), base.getAuthority(), base.getPath(), queryParams, base.getFragment());
+            StringBuilder queryString = new StringBuilder();
+            for(Map.Entry<String, String> queryParam : queryParams.entrySet()) {
+                if(queryString.length() > 0) {
+                    queryString.append("&");
+                }
+
+                queryString.append(queryParam.getKey())
+                        .append('=')
+                        .append(URLEncoder.encode(queryParam.getValue(), "UTF-8"));
+            }
+
+            return new URI(base.getScheme(), base.getAuthority(), base.getPath(), queryString.toString(), base.getFragment());
         } catch(URISyntaxException e) {
             throw new IllegalArgumentException("Arguments resulted in invalid endpoint URI.", e);
+        } catch(UnsupportedEncodingException e) {
+            throw new IllegalStateException("UTF-8 encoding not supported.", e);
         }
     }
 
