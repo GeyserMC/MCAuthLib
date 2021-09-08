@@ -4,6 +4,7 @@ import com.github.steveice10.mc.auth.data.GameProfile;
 import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsException;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.exception.request.ServiceUnavailableException;
+import com.github.steveice10.mc.auth.exception.request.XboxRequestException;
 import com.github.steveice10.mc.auth.util.HTTP;
 
 import java.io.*;
@@ -193,6 +194,18 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         XstsAuthRequest xstsRequest = new XstsAuthRequest(response.Token);
         response = HTTP.makeRequest(this.getProxy(), XSTS_AUTH_ENDPOINT, xstsRequest, XblAuthResponse.class);
+
+        if (response.XErr != 0) {
+            if (response.XErr == 2148916233L) {
+                throw new XboxRequestException("Microsoft account does not have an Xbox Live account attached!");
+            } else if (response.XErr == 2148916235L) {
+                throw new XboxRequestException("Xbox Live is not available in your country!");
+            } else if (response.XErr == 2148916238L) {
+                throw new XboxRequestException("This account is a child account! Please add it to a family in order to log in.");
+            } else {
+                throw new XboxRequestException("Error occurred while authenticating to Xbox Live! Error ID: " + response.XErr);
+            }
+        }
 
         McLoginRequest mcRequest = new McLoginRequest(response.DisplayClaims.xui[0].uhs, response.Token);
         return HTTP.makeRequest(this.getProxy(), MC_LOGIN_ENDPOINT, mcRequest, McLoginResponse.class);
@@ -417,6 +430,12 @@ public class MsaAuthenticationService extends AuthenticationService {
     }
 
     private static class XblAuthResponse {
+        /* Only appear in error responses */
+        public String Identity;
+        public long XErr;
+        public String Message;
+        public String Redirect;
+
         public String IssueInstant;
         public String NotAfter;
         public String Token;
