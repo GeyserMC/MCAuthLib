@@ -10,18 +10,18 @@
 
     <name>MCAuthLib</name>
     <description>A library for authentication with Minecraft accounts.</description>
-    <url>http://github.com/Steveice10/MCAuthLib/</url>
+    <url>http://github.com/GeyserMC/MCAuthLib/</url>
 
     <scm>
-        <connection>scm:git:git@github.com:Steveice10/MCAuthLib.git</connection>
-        <developerConnection>scm:git:git@github.com:Steveice10/MCAuthLib.git</developerConnection>
-        <url>git@github.com:Steveice10/MCAuthLib/</url>
+        <connection>scm:git:git@github.com:GeyserMC/MCAuthLib.git</connection>
+        <developerConnection>scm:git:git@github.com:GeyserMC/MCAuthLib.git</developerConnection>
+        <url>git@github.com:GeyserMC/MCAuthLib/</url>
     </scm>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jdk.version>1.7</jdk.version>
-        <argLine></argLine>
+        <argLine/>
     </properties>
 
     <licenses>
@@ -42,14 +42,14 @@
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/Steveice10/MCAuthLib/issues</url>
+        <url>https://github.com/GeyserMC/MCAuthLib/issues</url>
     </issueManagement>
 
     <dependencies>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.8.2</version>
+            <version>2.8.8</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
