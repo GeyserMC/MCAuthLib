@@ -38,6 +38,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
     private String deviceCode;
     private String clientId;
+    private String refreshToken;
 
     public MsaAuthenticationService(String clientId) {
         this(clientId, null);
@@ -83,7 +84,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
         MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
-
+        this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken("d=" + response.access_token);
     }
 
@@ -165,7 +166,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         MsTokenRequest request = new MsTokenRequest(code);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
-
+        this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken(response.access_token);
     }
 
@@ -209,6 +210,24 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         McLoginRequest mcRequest = new McLoginRequest(response.DisplayClaims.xui[0].uhs, response.Token);
         return HTTP.makeRequest(this.getProxy(), MC_LOGIN_ENDPOINT, mcRequest, McLoginResponse.class);
+    }
+
+    /**
+     * Attempt to fetch a new access token by using the refresh token.
+     * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow#refresh-the-access-token
+     *
+     * @return The response containing the new access token
+     * @throws RequestException
+     */
+    public MsRefreshTokenResponse refreshAccessToken() throws RequestException {
+        if (this.refreshToken == null) {
+            throw new InvalidCredentialsException("Invalid refresh token.");
+        }
+
+        MsRefreshTokenRequest request = new MsRefreshTokenRequest(this.clientId, this.refreshToken);
+        MsRefreshTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsRefreshTokenResponse.class);
+        this.refreshToken = response.refresh_token;
+        return response;
     }
 
     /**
@@ -330,6 +349,28 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
     }
 
+    private static class MsRefreshTokenRequest {
+        private String grant_type;
+        private String client_id;
+        private String refresh_token;
+
+        protected MsRefreshTokenRequest(String clientId, String refreshToken) {
+            this.grant_type = "refresh_token";
+            this.client_id = clientId;
+            this.refresh_token = refreshToken;
+        }
+
+        public Map<String, String> toMap() {
+            Map<String, String> map = new HashMap<>();
+
+            map.put("grant_type", grant_type);
+            map.put("client_id", client_id);
+            map.put("refresh_token", refresh_token);
+
+            return map;
+        }
+    }
+
     private static class MsTokenRequest {
         private String client_id;
         private String code;
@@ -419,6 +460,15 @@ public class MsaAuthenticationService extends AuthenticationService {
         public int expires_in;
         public int interval;
         public String message;
+    }
+
+    private static class MsRefreshTokenResponse {
+            public String access_token;
+            public String token_type;
+            public int expires_in;
+            public String scope;
+            public String refresh_token;
+            public String id_token;
     }
 
     private static class MsTokenResponse {
