@@ -5,7 +5,7 @@ MCAuthLib is a library for authentication with Minecraft accounts. It is used in
 See [example/com/github/steveice10/mc/auth/test/MinecraftAuthTest.java](https://github.com/GeyserMC/MCAuthLib/blob/master/example/com/github/steveice10/mc/auth/test/MinecraftAuthTest.java) for example usage.
 
 ## Installing as a dependency
-Most developers should be using MCAuthLib through MCProtocolLib, but you can also use it independently. The recommended way of installing MCAuthLib is through [JitPack](https://jitpack.io). For more details, [see MCAuthLib on JitPack](https://jitpack.io/#Steveice10/MCAuthLib).
+Most developers should be using MCAuthLib through MCProtocolLib, but you can also use it independently. The recommended way of installing MCAuthLib is through [JitPack](https://jitpack.io). For more details, [see MCAuthLib on JitPack](https://jitpack.io/#GeyserMC/MCAuthLib).
 
 Maven:
 ```xml
@@ -17,7 +17,7 @@ Maven:
 </repositories>
 
 <dependency>
-    <groupId>com.github.Steveice10</groupId>
+    <groupId>com.github.GeyserMC</groupId>
     <artifactId>MCAuthLib</artifactId>
     <version>(version here)</version>
 </dependency>
@@ -32,7 +32,7 @@ allprojects {
 }
 
 dependencies {
-    implementation 'com.github.Steveice10:MCAuthLib:(version here)'
+    implementation 'com.github.GeyserMC:MCAuthLib:(version here)'
 }
 ```
 
