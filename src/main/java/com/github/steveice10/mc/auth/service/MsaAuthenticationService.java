@@ -462,13 +462,13 @@ public class MsaAuthenticationService extends AuthenticationService {
         public String message;
     }
 
-    private static class MsRefreshTokenResponse {
-            public String access_token;
-            public String token_type;
-            public int expires_in;
-            public String scope;
-            public String refresh_token;
-            public String id_token;
+    public static class MsRefreshTokenResponse {
+        public String access_token;
+        public String token_type;
+        public int expires_in;
+        public String scope;
+        public String refresh_token;
+        public String id_token;
     }
 
     private static class MsTokenResponse {
