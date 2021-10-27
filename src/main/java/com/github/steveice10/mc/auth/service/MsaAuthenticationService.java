@@ -220,11 +220,23 @@ public class MsaAuthenticationService extends AuthenticationService {
      * @throws RequestException
      */
     public MsRefreshTokenResponse refreshAccessToken() throws RequestException {
+        return refreshAccessToken(this.refreshToken);
+    }
+
+    /**
+     * Attempt to fetch a new access token by using the refresh token.
+     * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow#refresh-the-access-token
+     *
+     * @param refreshToken An existing refresh token
+     * @return The response containing the new access token
+     * @throws RequestException
+     */
+    public MsRefreshTokenResponse refreshAccessToken(String refreshToken) throws RequestException {
         if (this.refreshToken == null) {
             throw new InvalidCredentialsException("Invalid refresh token.");
         }
 
-        MsRefreshTokenRequest request = new MsRefreshTokenRequest(this.clientId, this.refreshToken);
+        MsRefreshTokenRequest request = new MsRefreshTokenRequest(this.clientId, refreshToken);
         MsRefreshTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsRefreshTokenResponse.class);
         this.refreshToken = response.refresh_token;
         return response;
