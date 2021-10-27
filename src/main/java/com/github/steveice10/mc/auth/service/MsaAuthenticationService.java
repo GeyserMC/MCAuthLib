@@ -232,7 +232,7 @@ public class MsaAuthenticationService extends AuthenticationService {
      * @throws RequestException
      */
     public MsRefreshTokenResponse refreshAccessToken(String refreshToken) throws RequestException {
-        if (this.refreshToken == null) {
+        if (refreshToken == null) {
             throw new InvalidCredentialsException("Invalid refresh token.");
         }
 
