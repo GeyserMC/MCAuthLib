@@ -38,6 +38,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
     private String deviceCode;
     private String clientId;
+    private String refreshToken;
 
     public MsaAuthenticationService(String clientId) {
         this(clientId, null);
@@ -52,6 +53,21 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         this.clientId = clientId;
         this.deviceCode = deviceCode;
+    }
+
+    /**
+     * Gets the current refresh token for this session
+     */
+    public String getRefreshToken() {
+        return this.refreshToken;
+    }
+
+    /**
+     * Sets a new refresh token. Useful for re-authenticating from device code authorizations.
+     * @param refreshToken The refresh token to set
+     */
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 
     /**
@@ -83,7 +99,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
         MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
-
+        this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken("d=" + response.access_token);
     }
 
@@ -165,7 +181,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         MsTokenRequest request = new MsTokenRequest(clientId, code);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
-
+        this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken(response.access_token);
     }
 
@@ -179,6 +195,33 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
 
         return textBuilder.toString();
+    }
+
+    /**
+     * Refreshes the access token and refresh token for further use
+     *
+     * @return The response containing the refresh token, so the user can store it for later use.
+     * @throws RequestException
+     */
+    public MsTokenResponse refreshToken() throws RequestException {
+        if (this.refreshToken == null) {
+            throw new InvalidCredentialsException("Invalid refresh token.");
+        }
+
+        MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken).toMap(), MsTokenResponse.class);
+        accessToken = response.access_token;
+        refreshToken = response.refresh_token;
+
+        return response;
+    }
+
+    /**
+     * Attempt to sign in using an existing refresh token set by {@link #setRefreshToken(String)}
+     *
+     * @throws RequestException
+     */
+    private McLoginResponse getLoginResponseFromRefreshToken() throws RequestException {
+        return getLoginResponseFromToken("d=".concat(refreshToken().access_token));
     }
 
     /**
@@ -232,20 +275,25 @@ public class MsaAuthenticationService extends AuthenticationService {
         boolean token = this.clientId != null && !this.clientId.isEmpty();
         boolean device = this.deviceCode != null && !this.deviceCode.isEmpty();
         boolean password = this.password != null && !this.password.isEmpty();
-        if(!token && !password) {
+        boolean refresh = this.refreshToken != null && !this.refreshToken.isEmpty();
+
+        if(!token && !password && !refresh) {
             throw new InvalidCredentialsException("Invalid password or access token.");
         }
         if(password && (this.username == null || this.username.isEmpty())) {
             throw new InvalidCredentialsException("Invalid username.");
         }
+
         McLoginResponse response = null;
         if(password) {
             response = getLoginResponseFromCreds(this.username, this.password);
+        } else if (refresh) {
+            response = getLoginResponseFromRefreshToken();
         } else if(!device) {
             this.deviceCode = getAuthCode().device_code;
         }
 
-        if (!password) {
+        if (!password && !refresh) {
             response = getLoginResponseFromCode();
         }
 
@@ -358,6 +406,28 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
     }
 
+    private static class MsRefreshRequest {
+        private String client_id;
+        private String refresh_token;
+        private String grant_type;
+
+        protected MsRefreshRequest(String clientId, String refreshToken) {
+            this.client_id = clientId;
+            this.refresh_token = refreshToken;
+            this.grant_type = "refresh_token";
+        }
+
+        public Map<String, String> toMap() {
+            Map<String, String> map = new HashMap<>();
+
+            map.put("client_id", client_id);
+            map.put("refresh_token", refresh_token);
+            map.put("grant_type", grant_type);
+
+            return map;
+        }
+    }
+
     private static class XblAuthRequest {
         private String RelyingParty;
         private String TokenType;
@@ -421,7 +491,8 @@ public class MsaAuthenticationService extends AuthenticationService {
         public String message;
     }
 
-    private static class MsTokenResponse {
+    // Public so users can access the refresh_token for offline access
+    public static class MsTokenResponse {
         public String token_type;
         public String scope;
         public int expires_in;
