@@ -163,7 +163,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             throw new ServiceUnavailableException("Could not make request to '" + urlPost + "'.", e);
         }
 
-        MsTokenRequest request = new MsTokenRequest(code);
+        MsTokenRequest request = new MsTokenRequest(clientId, code);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
 
         return getLoginResponseFromToken(response.access_token);
@@ -337,8 +337,8 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String redirect_uri;
         private String scope;
 
-        protected MsTokenRequest(String code) {
-            this.client_id = "00000000402b5328";
+        protected MsTokenRequest(String clientId, String code) {
+            this.client_id = clientId;
             this.code = code;
             this.grant_type = "authorization_code";
             this.redirect_uri = "https://login.live.com/oauth20_desktop.srf";
