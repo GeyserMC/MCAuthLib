@@ -295,7 +295,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         protected MsCodeRequest(String clientId) {
             this.client_id = clientId;
-            this.scope = "XboxLive.signin";
+            this.scope = "XboxLive.signin offline_access";
         }
 
         public Map<String, String> toMap() {
