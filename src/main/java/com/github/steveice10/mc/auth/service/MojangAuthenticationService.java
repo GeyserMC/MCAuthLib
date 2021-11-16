@@ -139,7 +139,7 @@ public class MojangAuthenticationService extends AuthenticationService {
      * @return True if the account can be migrated, otherwise false.
      * @throws RequestException If an error occurs while making the request.
      */
-    public boolean msaMigrationCheck() throws RequestException {
+    public boolean canMigrate() throws RequestException {
         if (!this.loggedIn) {
             throw new RequestException("Cannot check migration eligibility while not logged in.");
         }
