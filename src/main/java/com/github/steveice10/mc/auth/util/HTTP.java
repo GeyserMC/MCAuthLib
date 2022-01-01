@@ -5,7 +5,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import jdk.nashorn.internal.objects.NativeArray;
 
 import java.io.*;
 import java.net.HttpURLConnection;
