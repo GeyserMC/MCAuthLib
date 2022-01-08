@@ -223,7 +223,8 @@ public class MsaAuthenticationService extends AuthenticationService {
         McProfileResponse response = HTTP.makeRequest(this.getProxy(), MC_PROFILE_ENDPOINT, null, McProfileResponse.class, headers);
 
         this.selectedProfile = new GameProfile(response.id, response.name);
-        this.profiles = Collections.singletonList(this.selectedProfile);
+        this.profiles.clear();
+        this.profiles.add(this.selectedProfile);
         this.username = response.name;
     }
 
