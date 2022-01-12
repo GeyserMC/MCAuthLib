@@ -342,8 +342,15 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String scope;
 
         protected MsCodeRequest(String clientId) {
+            this(clientId, false);
+        }
+
+        /**
+         * @param offlineAccess Set to true to request offline access for the refresh token, allowing re-authentication.
+         */
+        protected MsCodeRequest(String clientId, boolean offlineAccess) {
             this.client_id = clientId;
-            this.scope = "XboxLive.signin offline_access";
+            this.scope = "XboxLive.signin" + (offlineAccess ? " offline_access" : "");
         }
 
         public Map<String, String> toMap() {
