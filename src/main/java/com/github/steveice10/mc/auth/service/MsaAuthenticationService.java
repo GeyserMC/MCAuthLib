@@ -222,7 +222,7 @@ public class MsaAuthenticationService extends AuthenticationService {
      * @throws RequestException
      */
     private McLoginResponse getLoginResponseFromRefreshToken() throws RequestException {
-        return getLoginResponseFromToken("d=".concat(refreshToken().access_token));
+        return getLoginResponseFromToken("d=".concat(refreshToken().access_token), this.getProxy());
     }
 
     /**

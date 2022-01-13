@@ -9,7 +9,9 @@ import com.microsoft.aad.msal4j.*;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +61,7 @@ public class MSALAuthenticationService extends AuthenticationService {
      */
     public MSALAuthenticationService(String clientId, boolean offlineAccess, String authority, ITokenCacheAccessAspect tokenCacheAccessAspect) throws IOException {
         super(URI.create(""));
-        this.scopes = Set.of((offlineAccess ? XBOX_OFFLINE_SCOPE : XBOX_SIGNIN_SCOPE).split(" "));
+        this.scopes = new HashSet<>(Arrays.asList((offlineAccess ? XBOX_OFFLINE_SCOPE : XBOX_SIGNIN_SCOPE).split(" ")));
 
         // Create MSAL client
         this.app = PublicClientApplication.builder(clientId)
