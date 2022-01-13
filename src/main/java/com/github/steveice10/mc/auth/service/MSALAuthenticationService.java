@@ -24,7 +24,7 @@ public class MSALAuthenticationService extends AuthenticationService {
 
     private final Set<String> scopes;
     private final PublicClientApplication app;
-    private String microsoftAccessToken;
+    private Consumer<DeviceCode> deviceCodeConsumer;
 
     /**
      * Creates a <code>MSALAuthenticationService</code>. Uses default authority and sign in scope (no offline access).
@@ -71,7 +71,7 @@ public class MSALAuthenticationService extends AuthenticationService {
     }
 
     /**
-     * Triggers the <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-device-code">Device Code flow</a> for Microsoft Account authentication.
+     * Sets the function to run when a <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-device-code">Device Code flow</a> is requested.
      * <p>
      * The provided <code>consumer</code> will be called when Azure is ready for the user to authenticate. Your consumer
      * should somehow get the user to authenticate with the provided URL and user code. How this is implemented is up to
@@ -79,19 +79,46 @@ public class MSALAuthenticationService extends AuthenticationService {
      *
      * @param consumer To be called when Azure wants the user to sign in. This involves showing the user the URL to open and the code to enter.
      */
-    public void getDeviceCode(Consumer<DeviceCode> consumer) throws ExecutionException, InterruptedException, MalformedURLException {
-        // Find account to re-authenticate from cache
-        IAccount account = app.getAccounts().join().stream()
-                .filter((a) -> a.username().equalsIgnoreCase(this.getUsername()))
+    public void setDeviceCodeConsumer(Consumer<DeviceCode> consumer) {
+        this.deviceCodeConsumer = consumer;
+    }
+
+    /**
+     * Authenticates the user using Device Code flow.
+     */
+    private IAuthenticationResult getAccessTokenWithDeviceCode() throws MalformedURLException, ExecutionException, InterruptedException {
+        return getAccessToken(null, DeviceCodeFlowParameters.builder(scopes, this.deviceCodeConsumer).build()).get();
+    }
+
+    /**
+     * Authenticates the user using credentials (username and password).
+     */
+    private IAuthenticationResult getAccessTokenWithCredentials(String username, String password) throws MalformedURLException, ExecutionException, InterruptedException {
+        return getAccessToken(UserNamePasswordParameters.builder(scopes, username, password.toCharArray()).build(), null).get();
+    }
+
+    /**
+     * Get an <code>IAccount</code> from the cache (if available) for re-authentication.
+     *
+     * @return An <code>IAccount</code> matching the username given to this <code>MSALAuthenticationService</code>
+     */
+    private IAccount getIAccount() {
+        return app.getAccounts().join().stream()
+                .filter(account -> account.username().equalsIgnoreCase(this.getUsername()))
                 .findFirst().orElse(null);
+    }
 
-        // Log in with either device code or silently with cached account
-        CompletableFuture<IAuthenticationResult> accessTokenFuture = (account != null
-                ? app.acquireTokenSilently(SilentParameters.builder(scopes, account).build())
-                : app.acquireToken(DeviceCodeFlowParameters.builder(scopes, consumer).build()));
+    /**
+     * Wrapper for silent, credential, and device code flows. <strong>Either</strong> parameter can be null, but <strong>not</strong> both.
+     * @param userPassParams Parameters to use for username/password authentication.
+     * @param deviceCodeParams Parameters to use for device code authentication.
+     */
+    private CompletableFuture<IAuthenticationResult> getAccessToken(UserNamePasswordParameters userPassParams, DeviceCodeFlowParameters deviceCodeParams) throws MalformedURLException {
+        IAccount account = getIAccount();
 
-        // Wait for the access token
-        this.microsoftAccessToken = accessTokenFuture.get().accessToken();
+        if (account == null)
+            return (deviceCodeParams != null) ? app.acquireToken(deviceCodeParams) : app.acquireToken(userPassParams);
+        else return app.acquireTokenSilently(SilentParameters.builder(scopes, account).build());
     }
 
     /**
@@ -113,12 +140,22 @@ public class MSALAuthenticationService extends AuthenticationService {
 
     @Override
     public void login() throws RequestException {
-        // Get an access token for the Minecraft session
-        this.accessToken = MsaAuthenticationService.getLoginResponseFromToken("d=".concat(this.microsoftAccessToken), this.getProxy()).access_token;
+        try {
+            // Get access token for users Microsoft account
+            String microsoftAccessToken = (this.password != null && !this.password.isEmpty())
+                    ? this.getAccessTokenWithCredentials(this.username, this.password).accessToken()
+                    : this.getAccessTokenWithDeviceCode().accessToken();
 
-        // Get the profile to complete the login process
-        getProfile();
+            // Get an access token for the Minecraft session
+            this.accessToken = MsaAuthenticationService.getLoginResponseFromToken(
+                    "d=".concat(microsoftAccessToken), this.getProxy()).access_token;
 
-        this.loggedIn = true;
+            // Get the profile to complete the login process
+            getProfile();
+
+            this.loggedIn = true;
+        } catch (MalformedURLException | ExecutionException | InterruptedException ex) {
+            throw new RequestException(ex);
+        }
     }
 }
