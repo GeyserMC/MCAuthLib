@@ -9,6 +9,7 @@ import com.github.steveice10.mc.auth.util.HTTP;
 
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.Proxy;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
@@ -28,7 +29,7 @@ public class MsaAuthenticationService extends AuthenticationService {
     private static final URI XBL_AUTH_ENDPOINT = URI.create("https://user.auth.xboxlive.com/user/authenticate");
     private static final URI XSTS_AUTH_ENDPOINT = URI.create("https://xsts.auth.xboxlive.com/xsts/authorize");
     private static final URI MC_LOGIN_ENDPOINT = URI.create("https://api.minecraftservices.com/authentication/login_with_xbox");
-    private static final URI MC_PROFILE_ENDPOINT = URI.create("https://api.minecraftservices.com/minecraft/profile");
+    public static final URI MC_PROFILE_ENDPOINT = URI.create("https://api.minecraftservices.com/minecraft/profile");
 
     private static final URI EMPTY_URI = URI.create("");
 
@@ -100,7 +101,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
         this.refreshToken = response.refresh_token;
-        return getLoginResponseFromToken("d=" + response.access_token);
+        return getLoginResponseFromToken("d=" + response.access_token, this.getProxy());
     }
 
     private McLoginResponse getLoginResponseFromCreds(String username, String password) throws RequestException {
@@ -182,7 +183,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         MsTokenRequest request = new MsTokenRequest(clientId, code);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
         this.refreshToken = response.refresh_token;
-        return getLoginResponseFromToken(response.access_token);
+        return getLoginResponseFromToken(response.access_token, this.getProxy());
     }
 
     private String inputStreamToString(InputStream inputStream) throws IOException {
@@ -231,12 +232,12 @@ public class MsaAuthenticationService extends AuthenticationService {
      * @param accessToken the access token
      * @return The Minecraft login response
      */
-    private McLoginResponse getLoginResponseFromToken(String accessToken) throws RequestException {
+    public static McLoginResponse getLoginResponseFromToken(String accessToken, Proxy proxy) throws RequestException {
         XblAuthRequest xblRequest = new XblAuthRequest(accessToken);
-        XblAuthResponse response = HTTP.makeRequest(this.getProxy(), XBL_AUTH_ENDPOINT, xblRequest, XblAuthResponse.class);
+        XblAuthResponse response = HTTP.makeRequest(proxy, XBL_AUTH_ENDPOINT, xblRequest, XblAuthResponse.class);
 
         XstsAuthRequest xstsRequest = new XstsAuthRequest(response.Token);
-        response = HTTP.makeRequest(this.getProxy(), XSTS_AUTH_ENDPOINT, xstsRequest, XblAuthResponse.class);
+        response = HTTP.makeRequest(proxy, XSTS_AUTH_ENDPOINT, xstsRequest, XblAuthResponse.class);
 
         if (response.XErr != 0) {
             if (response.XErr == 2148916233L) {
@@ -251,7 +252,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
 
         McLoginRequest mcRequest = new McLoginRequest(response.DisplayClaims.xui[0].uhs, response.Token);
-        return HTTP.makeRequest(this.getProxy(), MC_LOGIN_ENDPOINT, mcRequest, McLoginResponse.class);
+        return HTTP.makeRequest(proxy, MC_LOGIN_ENDPOINT, mcRequest, McLoginResponse.class);
     }
 
     /**
@@ -528,7 +529,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
     }
 
-    private static class McLoginResponse {
+    public static class McLoginResponse {
         public String username;
         public String[] roles;
         public String access_token;
@@ -536,7 +537,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         public int expires_in;
     }
 
-    private static class McProfileResponse {
+    public static class McProfileResponse {
         public UUID id;
         public String name;
         public Skin[] skins;

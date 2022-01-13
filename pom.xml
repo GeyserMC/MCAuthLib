@@ -52,6 +52,11 @@
             <version>2.8.2</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>msal4j</artifactId>
+            <version>1.11.0</version>
+        </dependency>
     </dependencies>
 
     <build>
