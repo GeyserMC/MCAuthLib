@@ -21,6 +21,7 @@ public class MinecraftAuthTest {
     public static void main(String[] args) {
         profileLookup();
         auth();
+        authMicrosoftMsal();
     }
 
     private static void profileLookup() {
@@ -89,5 +90,19 @@ public class MinecraftAuthTest {
         }
 
         return auth;
+    }
+
+    private static void authMicrosoftMsal() {
+        MSALAuthenticationService auth = new MSALAuthenticationService(AZURE_CLIENT_ID);
+        auth.setUsername(EMAIL);
+
+        auth.getDeviceCode((deviceCode) -> {
+            if (deviceCode != null) System.out.println(deviceCode.message());
+            else System.out.println("Authenticating using cached tokens...");
+        });
+
+        auth.login();
+
+        System.out.printf("Minecraft username: %s%n", auth.getSelectedProfile().getName());
     }
 }
