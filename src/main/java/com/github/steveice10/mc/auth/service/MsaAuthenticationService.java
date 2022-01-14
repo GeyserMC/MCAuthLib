@@ -201,7 +201,6 @@ public class MsaAuthenticationService extends AuthenticationService {
     public MsTokenResponse refreshToken() throws RequestException {
         if (this.refreshToken == null || this.refreshToken.isEmpty())
             throw new InvalidCredentialsException("Invalid refresh token.");
-        }
 
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken).toMap(), MsTokenResponse.class);
 
