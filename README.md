@@ -10,9 +10,8 @@ Visit [wiki.vg](https://wiki.vg/) for documentation on [Mojang API authenticatio
 
 | `AuthenticationService` | Usage |
 | :---: | --- |
-| `MojangAuthenticationService` | Used for authenticating Mojang accounts. Supports regular Mojang accounts (email) and legacy accounts (username). |
-| `MsaAuthenticationService` | Used for authenticating Microsoft accounts. This service is a custom implementation using a combination of Microsoft, Mojang, and Xbox API's. |
-| `MSALAuthenticationService` | Alternative service for authenticating Microsoft accounts. This service uses the [Microsoft Authentication Library (MSAL) for Java](https://github.com/AzureAD/microsoft-authentication-library-for-java) to authenticate. |
+| `MojangAuthenticationService` | Used for authenticating Mojang accounts.<br>Supports regular Mojang accounts (email) and legacy accounts (username). |
+| `MsaAuthenticationService` | Used for authenticating Microsoft accounts.<br>Device Code auth uses the [Microsoft Authentication Library (MSAL) for Java](https://github.com/AzureAD/microsoft-authentication-library-for-java). <br>Username/password auth uses a custom implementation using a combination of Microsoft, Mojang, and Xbox API's. |
 
 ## Building the Source
 MCAuthLib uses Maven to manage dependencies. Simply run 'mvn clean install' in the source's directory.
