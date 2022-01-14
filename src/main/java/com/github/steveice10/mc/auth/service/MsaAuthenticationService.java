@@ -208,7 +208,6 @@ public class MsaAuthenticationService extends AuthenticationService {
      * Refreshes the access token and refresh token for further use
      *
      * @return The response containing the refresh token, so the user can store it for later use.
-     * @throws RequestException
      */
     public MsTokenResponse refreshToken() throws RequestException {
         if (this.refreshToken == null) {
@@ -216,6 +215,8 @@ public class MsaAuthenticationService extends AuthenticationService {
         }
 
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken).toMap(), MsTokenResponse.class);
+
+        assert response != null;
         accessToken = response.access_token;
         refreshToken = response.refresh_token;
 
