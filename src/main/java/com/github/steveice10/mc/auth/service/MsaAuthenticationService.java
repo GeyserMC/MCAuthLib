@@ -64,11 +64,8 @@ public class MsaAuthenticationService extends AuthenticationService {
      * {@link MSALApplicationOptions.Builder} to set your own options.
      */
     public MsaAuthenticationService(String clientId, MSALApplicationOptions msalOptions) throws MalformedURLException {
-        // Create the default MSAL client
-        this(clientId, msalOptions.scopes, PublicClientApplication.builder(clientId)
-                .authority(msalOptions.authority)
-                .setTokenCacheAccessAspect(msalOptions.tokenPersistence)
-                .build());
+        this(clientId, msalOptions.scopes, fixBuilderPersistence(
+                PublicClientApplication.builder(clientId).authority(msalOptions.authority), msalOptions).build());
     }
 
     /**
@@ -89,6 +86,19 @@ public class MsaAuthenticationService extends AuthenticationService {
         this.clientId = clientId;
         this.scopes = scopes;
         this.app = app;
+    }
+
+    /**
+     * Assists in creating a {@link PublicClientApplication.Builder} in one of the constructors.
+     *
+     * Due to the nature of Builders and how MSAL handles null values, we need to do some extra work to ensure that
+     * persistence is set correctly.
+     */
+    private static PublicClientApplication.Builder fixBuilderPersistence(PublicClientApplication.Builder builder, MSALApplicationOptions options) {
+        // Set the token persistence, if specified. Necessary step as we cannot pass null to MSAL.
+        if (options.tokenPersistence != null)
+            builder.setTokenCacheAccessAspect(options.tokenPersistence);
+        return builder;
     }
 
     /**
