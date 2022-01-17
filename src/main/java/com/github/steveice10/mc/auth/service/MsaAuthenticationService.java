@@ -47,10 +47,22 @@ public class MsaAuthenticationService extends AuthenticationService {
     private String refreshToken;
     private Consumer<DeviceCode> deviceCodeConsumer;
 
+    /**
+     * Create a new {@link AuthenticationService} for Microsoft accounts using default options.
+     * <p>
+     * The default options include the "consumers" authority (see <a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration#authority">MSAL documentation</a>),
+     * the <code>XboxLive.signin</code> scope, and a token persistence that saves/loads tokens to/from disk.
+     */
     public MsaAuthenticationService(String clientId) throws IOException {
         this(clientId, new MSALApplicationOptions.Builder().build());
     }
 
+    /**
+     * Create a new {@link AuthenticationService} for Microsoft accounts using the given {@link MSALApplicationOptions}.
+     * <p>
+     * Anything not specified in the options will be set to the default values. For more control, use the
+     * {@link MSALApplicationOptions.Builder} to set your own options.
+     */
     public MsaAuthenticationService(String clientId, MSALApplicationOptions msalOptions) throws MalformedURLException {
         // Create the default MSAL client
         this(clientId, msalOptions.scopes, PublicClientApplication.builder(clientId)
@@ -59,6 +71,15 @@ public class MsaAuthenticationService extends AuthenticationService {
                 .build());
     }
 
+    /**
+     * Create a new {@link AuthenticationService} for Microsoft accounts with a custom MSAL {@link PublicClientApplication}.
+     * <p>
+     * This constructor is most useful if you need more granular control over the MSAL client on top of the provided
+     * configurable options. Please note that the {@link PublicClientApplication} must be configured with the same client
+     * ID as this service.
+     * <p>
+     * For more information on how to configure MSAL, see <a href="https://github.com/AzureAD/microsoft-authentication-library-for-java/wiki/Client-Applications">MSAL for Java documentation</a>.
+     */
     public MsaAuthenticationService(String clientId, Set<String> scopes, PublicClientApplication app) {
         super(URI.create(""));
 
