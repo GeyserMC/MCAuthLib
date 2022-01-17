@@ -16,10 +16,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
@@ -43,7 +40,7 @@ public class MsaAuthenticationService extends AuthenticationService {
     private static final Pattern URL_POST_PATTERN = Pattern.compile("urlPost:[ ]?'(.+?(?='))");
     private static final Pattern CODE_PATTERN = Pattern.compile("[?|&]code=([\\w.-]+)");
 
-    private final MSALApplicationOptions msalOptions;
+    private final Set<String> scopes;
     private final PublicClientApplication app;
 
     private String clientId;
@@ -55,19 +52,22 @@ public class MsaAuthenticationService extends AuthenticationService {
     }
 
     public MsaAuthenticationService(String clientId, MSALApplicationOptions msalOptions) throws MalformedURLException {
+        // Create the default MSAL client
+        this(clientId, msalOptions.scopes, PublicClientApplication.builder(clientId)
+                .authority(msalOptions.authority)
+                .setTokenCacheAccessAspect(msalOptions.tokenPersistence)
+                .build());
+    }
+
+    public MsaAuthenticationService(String clientId, Set<String> scopes, PublicClientApplication app) {
         super(URI.create(""));
 
         if (clientId == null || clientId.isEmpty())
             throw new IllegalArgumentException("clientId cannot be null or empty.");
 
         this.clientId = clientId;
-        this.msalOptions = msalOptions;
-
-        // Create the MSAL client
-        this.app = PublicClientApplication.builder(clientId)
-                .authority(msalOptions.authority)
-                .setTokenCacheAccessAspect(msalOptions.tokenPersistence)
-                .build();
+        this.scopes = scopes;
+        this.app = app;
     }
 
     /**
@@ -231,8 +231,8 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         IAccount account = this.getIAccount();
         if (account == null)
-            return this.app.acquireToken(DeviceCodeFlowParameters.builder(this.msalOptions.scopes, this.deviceCodeConsumer).build());
-        else return this.app.acquireTokenSilently(SilentParameters.builder(this.msalOptions.scopes, account).build());
+            return this.app.acquireToken(DeviceCodeFlowParameters.builder(this.scopes, this.deviceCodeConsumer).build());
+        else return this.app.acquireTokenSilently(SilentParameters.builder(this.scopes, account).build());
     }
 
     /**
