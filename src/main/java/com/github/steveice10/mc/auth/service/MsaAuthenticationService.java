@@ -77,10 +77,21 @@ public class MsaAuthenticationService extends AuthenticationService {
      * @throws RequestException
      */
     public MsCodeResponse getAuthCode() throws RequestException {
-        if(this.clientId == null) {
+        return getAuthCode(false);
+    }
+
+    /**
+     * Generate a single use code for Microsoft authentication
+     *
+     * @param offlineAccess whether a refresh token should be generated for later use.
+     * @return The code along with other returned data
+     * @throws RequestException
+     */
+    public MsCodeResponse getAuthCode(boolean offlineAccess) throws RequestException {
+        if (this.clientId == null) {
             throw new InvalidCredentialsException("Invalid client id.");
         }
-        MsCodeRequest request = new MsCodeRequest(this.clientId);
+        MsCodeRequest request = new MsCodeRequest(this.clientId, offlineAccess);
         MsCodeResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_ENDPOINT, request.toMap(), MsCodeResponse.class);
         this.deviceCode = response.device_code;
         return response;
@@ -338,9 +349,10 @@ public class MsaAuthenticationService extends AuthenticationService {
     }
 
     private static class MsCodeRequest {
-        private String client_id;
-        private String scope;
+        private final String client_id;
+        private final String scope;
 
+        @Deprecated
         protected MsCodeRequest(String clientId) {
             this(clientId, false);
         }
