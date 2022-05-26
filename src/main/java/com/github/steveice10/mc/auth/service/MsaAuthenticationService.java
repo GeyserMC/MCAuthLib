@@ -38,13 +38,14 @@ public class MsaAuthenticationService extends AuthenticationService {
 
     private String deviceCode;
     private String clientId;
+    private String clientSecret;
     private String refreshToken;
 
-    public MsaAuthenticationService(String clientId) {
-        this(clientId, null);
+    public MsaAuthenticationService(String clientId, String clientSecret) {
+        this(clientId, null, clientSecret);
     }
 
-    public MsaAuthenticationService(String clientId, String deviceCode) {
+    public MsaAuthenticationService(String clientId, String deviceCode, String clientSecret) {
         super(EMPTY_URI);
 
         if(clientId == null) {
@@ -53,6 +54,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         this.clientId = clientId;
         this.deviceCode = deviceCode;
+        this.clientSecret = clientSecret;
     }
 
     /**
@@ -108,7 +110,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         if(this.deviceCode == null) {
             throw new InvalidCredentialsException("Invalid device code.");
         }
-        MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode);
+        MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode, this.clientSecret);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
         this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken("d=" + response.access_token);
@@ -219,7 +221,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             throw new InvalidCredentialsException("Invalid refresh token.");
         }
 
-        MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken).toMap(), MsTokenResponse.class);
+        MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken, clientSecret).toMap(), MsTokenResponse.class);
         accessToken = response.access_token;
         refreshToken = response.refresh_token;
 
@@ -379,11 +381,13 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String grant_type;
         private String client_id;
         private String device_code;
+        private String client_secret;
 
-        protected MsCodeTokenRequest(String clientId, String deviceCode) {
+        protected MsCodeTokenRequest(String clientId, String deviceCode, String client_secret) {
             this.grant_type = "urn:ietf:params:oauth:grant-type:device_code";
             this.client_id = clientId;
             this.device_code = deviceCode;
+            this.client_secret = client_secret;
         }
 
         public Map<String, String> toMap() {
@@ -392,6 +396,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             map.put("grant_type", grant_type);
             map.put("client_id", client_id);
             map.put("device_code", device_code);
+            map.put("client_secret", client_secret);
 
             return map;
         }
@@ -429,11 +434,14 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String client_id;
         private String refresh_token;
         private String grant_type;
+        private String client_secret;
 
-        protected MsRefreshRequest(String clientId, String refreshToken) {
+        protected MsRefreshRequest(String clientId, String refreshToken, String client_secret) {
             this.client_id = clientId;
             this.refresh_token = refreshToken;
             this.grant_type = "refresh_token";
+            this.client_secret = client_secret;
+
         }
 
         public Map<String, String> toMap() {
@@ -442,6 +450,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             map.put("client_id", client_id);
             map.put("refresh_token", refresh_token);
             map.put("grant_type", grant_type);
+            map.put("client_secret", client_secret);
 
             return map;
         }
