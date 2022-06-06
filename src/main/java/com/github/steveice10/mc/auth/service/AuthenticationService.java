@@ -1,16 +1,16 @@
 package com.github.steveice10.mc.auth.service;
 
 import com.github.steveice10.mc.auth.data.GameProfile;
-import com.github.steveice10.mc.auth.exception.request.InvalidCredentialsException;
+import com.github.steveice10.mc.auth.data.ProfileKeyPair;
 import com.github.steveice10.mc.auth.exception.request.RequestException;
+import com.github.steveice10.mc.auth.util.CryptUtils;
 import com.github.steveice10.mc.auth.util.HTTP;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.time.Instant;
+import java.util.*;
 
 /**
  * Service used for authenticating users.
@@ -23,6 +23,7 @@ public abstract class AuthenticationService extends Service {
     protected GameProfile selectedProfile;
     protected List<GameProfile.Property> properties = new ArrayList<>();
     protected List<GameProfile> profiles = new ArrayList<>();
+    protected ProfileKeyPair profileKeyPair;
 
     public AuthenticationService(URI defaultURI) {
         super(defaultURI);
@@ -130,6 +131,26 @@ public abstract class AuthenticationService extends Service {
         }
     }
 
+    public void loadProfileKeyPair() throws Exception {
+        Map<String, String> headers = Collections.singletonMap("Authorization", "Bearer " + this.accessToken);
+        KeyPairResponse keyPairResponse = HTTP.makeRequest(this.getProxy(), KeyPairResponse.KEY_PAIR_ENDPOINT, new byte[0], KeyPairResponse.class, headers);
+        if (keyPairResponse == null) {
+            return;
+        }
+
+        Instant expiresAt = Instant.parse(keyPairResponse.expiresAt);
+        PublicKey publicKey = CryptUtils.stringToRsaPublicKey(keyPairResponse.getPublicKey());
+        PrivateKey privateKey = CryptUtils.stringToPemRsaPrivateKey(keyPairResponse.getPrivateKey());
+        byte[] publicKeySignature = Base64.getDecoder().decode(keyPairResponse.publicKeySignature);
+        Instant refreshedAfter = Instant.parse(keyPairResponse.refreshedAfter);
+
+        this.profileKeyPair = new ProfileKeyPair(privateKey, expiresAt, publicKey, publicKeySignature, refreshedAfter);
+    }
+
+    public ProfileKeyPair getProfileKeyPair() {
+        return profileKeyPair;
+    }
+
     /**
      * Logs the service in.
      * The current access token will be used if set. Otherwise, password-based authentication will be used.
@@ -153,5 +174,28 @@ public abstract class AuthenticationService extends Service {
         this.properties.clear();
         this.profiles.clear();
         this.selectedProfile = null;
+        this.profileKeyPair = null;
+    }
+
+    public static class KeyPairResponse {
+        static final URI KEY_PAIR_ENDPOINT = URI.create("https://api.minecraftservices.com/player/certificates");
+
+        private KeyPair keyPair;
+        private String publicKeySignature;
+        private String expiresAt;
+        private String refreshedAfter;
+
+        public String getPrivateKey() {
+            return keyPair.privateKey;
+        }
+
+        public String getPublicKey() {
+            return keyPair.publicKey;
+        }
+
+        private static final class KeyPair {
+            private String privateKey;
+            private String publicKey;
+        }
     }
 }

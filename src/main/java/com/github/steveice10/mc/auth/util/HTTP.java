@@ -56,20 +56,20 @@ public class HTTP {
      * @throws RequestException If an error occurs while making the request.
      */
     public static <T> T makeRequest(Proxy proxy, URI uri, Object input, Class<T> responseType, Map<String, String> extraHeaders) throws RequestException {
-        if(proxy == null) {
+        if (proxy == null) {
             throw new IllegalArgumentException("Proxy cannot be null.");
-        } else if(uri == null) {
+        } else if (uri == null) {
             throw new IllegalArgumentException("URI cannot be null.");
         }
 
         JsonElement response;
         try {
             response = input == null ? performGetRequest(proxy, uri, extraHeaders) : performPostRequest(proxy, uri, extraHeaders, GSON.toJson(input), "application/json");
-        } catch(IOException e) {
+        } catch (IOException e) {
             throw new ServiceUnavailableException("Could not make request to '" + uri + "'.", e);
         }
 
-        if(response != null) {
+        if (response != null) {
             checkForError(response);
 
             if(responseType != null) {

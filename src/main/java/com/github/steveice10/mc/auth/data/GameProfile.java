@@ -4,7 +4,6 @@ import com.github.steveice10.mc.auth.exception.property.ProfileTextureException;
 import com.github.steveice10.mc.auth.exception.property.PropertyException;
 import com.github.steveice10.mc.auth.exception.property.SignatureValidateException;
 import com.github.steveice10.mc.auth.service.SessionService;
-import com.github.steveice10.mc.auth.util.Base64;
 import com.github.steveice10.mc.auth.util.UUIDSerializer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -18,13 +17,7 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Information about a user profile.
@@ -223,7 +216,7 @@ public class GameProfile {
 
                 MinecraftTexturesPayload result;
                 try {
-                    String json = new String(Base64.decode(textures.getValue().getBytes(StandardCharsets.UTF_8)));
+                    String json = new String(Base64.getDecoder().decode(textures.getValue().getBytes(StandardCharsets.UTF_8)));
                     result = GSON.fromJson(json, MinecraftTexturesPayload.class);
                 } catch(Exception e) {
                     throw new ProfileTextureException("Could not decode texture payload.", e);
@@ -382,7 +375,7 @@ public class GameProfile {
                 Signature sig = Signature.getInstance("SHA1withRSA");
                 sig.initVerify(key);
                 sig.update(this.value.getBytes());
-                return sig.verify(Base64.decode(this.signature.getBytes("UTF-8")));
+                return sig.verify(Base64.getDecoder().decode(this.signature.getBytes(StandardCharsets.UTF_8)));
             } catch(Exception e) {
                 throw new SignatureValidateException("Could not validate property signature.", e);
             }
