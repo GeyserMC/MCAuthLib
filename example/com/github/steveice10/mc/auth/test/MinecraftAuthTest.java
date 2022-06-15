@@ -5,9 +5,13 @@ import com.github.steveice10.mc.auth.exception.request.RequestException;
 import com.github.steveice10.mc.auth.service.AuthenticationService;
 import com.github.steveice10.mc.auth.service.MojangAuthenticationService;
 import com.github.steveice10.mc.auth.service.ProfileService;
+import com.github.steveice10.mc.auth.service.ServiceRoot;
 import com.github.steveice10.mc.auth.service.SessionService;
 
 import java.net.Proxy;
+import java.net.URI;
+import java.util.List;
+import java.util.Scanner;
 import java.util.UUID;
 
 public class MinecraftAuthTest {
@@ -15,12 +19,21 @@ public class MinecraftAuthTest {
     private static final String EMAIL = "Username@mail.com";
     private static final String PASSWORD = "Password";
     private static final boolean REQUIRE_SECURE_TEXTURES = true;
+    private static final URI AUTHLIB_INJECTION_URI = URI.create("https://example.yggdrasil.com/api/yggdrasil/"); // must end with a "/"!
 
     private static final Proxy PROXY = Proxy.NO_PROXY;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws RequestException {
+        ServiceRoot.registerYggdrasilServiceRoot(AUTHLIB_INJECTION_URI);
         profileLookup();
         auth();
+    }
+
+    private static int readInt() {
+        Scanner sc = new Scanner(System.in);
+        int result =  sc.nextInt();
+        sc.close();
+        return result;
     }
 
     private static void profileLookup() {
@@ -60,6 +73,13 @@ public class MinecraftAuthTest {
 
         auth = login(clientToken, auth.getAccessToken(), true);
         GameProfile profile = auth.getSelectedProfile();
+        if (profile == null) {
+            System.out.println("Select a profile:");
+            List<GameProfile> profiles = auth.getAvailableProfiles();
+            for (int i = 0; i < profiles.size(); ++i)
+                System.out.println(String.format("%d) %s", i, profiles.get(i)));
+            profile = profiles.get(readInt());
+        }
         try {
             service.fillProfileProperties(profile);
 

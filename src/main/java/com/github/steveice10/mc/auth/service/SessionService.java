@@ -25,7 +25,6 @@ import java.util.UUID;
  * Service used for session-related queries.
  */
 public class SessionService extends Service {
-    private static final URI DEFAULT_BASE_URI = URI.create("https://sessionserver.mojang.com/session/minecraft/");
     private static final String JOIN_ENDPOINT = "join";
     private static final String HAS_JOINED_ENDPOINT = "hasJoined";
     private static final String PROFILE_ENDPOINT = "profile";
@@ -34,7 +33,7 @@ public class SessionService extends Service {
      * Creates a new SessionService instance.
      */
     public SessionService() {
-        super(DEFAULT_BASE_URI);
+        super(ServiceRoot.getSessionURI());
     }
 
     /**

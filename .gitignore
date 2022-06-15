@@ -11,3 +11,4 @@ testing
 *.iml
 .idea
 
+**/.DS_Store

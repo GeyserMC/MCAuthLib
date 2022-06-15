@@ -3,21 +3,17 @@ package com.github.steveice10.mc.auth.data;
 import com.github.steveice10.mc.auth.exception.property.ProfileTextureException;
 import com.github.steveice10.mc.auth.exception.property.PropertyException;
 import com.github.steveice10.mc.auth.exception.property.SignatureValidateException;
-import com.github.steveice10.mc.auth.service.SessionService;
+import com.github.steveice10.mc.auth.service.ServiceRoot;
 import com.github.steveice10.mc.auth.util.Base64;
 import com.github.steveice10.mc.auth.util.UUIDSerializer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,27 +26,9 @@ import java.util.UUID;
  * Information about a user profile.
  */
 public class GameProfile {
-    private static final String[] WHITELISTED_DOMAINS = { ".minecraft.net", ".mojang.com" };
-    private static final PublicKey SIGNATURE_KEY;
     private static final Gson GSON;
 
     static {
-        try(InputStream in = SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-            byte[] buffer = new byte[4096];
-            int length = -1;
-            while((length = in.read(buffer)) != -1) {
-                out.write(buffer, 0, length);
-            }
-
-            out.close();
-
-            SIGNATURE_KEY = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(out.toByteArray()));
-        } catch(Exception e) {
-            throw new ExceptionInInitializerError("Missing/invalid yggdrasil public key.");
-        }
-
         GSON = new GsonBuilder().registerTypeAdapter(UUID.class, new UUIDSerializer()).create();
     }
 
@@ -63,7 +41,7 @@ public class GameProfile {
         }
 
         String domain = uri.getHost();
-        for(String whitelistedDomain : WHITELISTED_DOMAINS) {
+        for(String whitelistedDomain : ServiceRoot.getWhitelistedDomains()) {
             if(domain.endsWith(whitelistedDomain)) {
                 return true;
             }
@@ -216,7 +194,7 @@ public class GameProfile {
                         throw new ProfileTextureException("Signature is missing from textures payload.");
                     }
 
-                    if(!textures.isSignatureValid(SIGNATURE_KEY)) {
+                    if(!textures.isSignatureValid(ServiceRoot.getSignatureKey())) {
                         throw new ProfileTextureException("Textures payload has been tampered with. (signature invalid)");
                     }
                 }

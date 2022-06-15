@@ -16,7 +16,6 @@ import java.util.UUID;
  * Repository for looking up profiles by name.
  */
 public class ProfileService extends Service {
-    private static final URI DEFAULT_BASE_URI = URI.create("https://api.mojang.com/profiles/");
     private static final String SEARCH_ENDPOINT = "minecraft";
 
     private static final int MAX_FAIL_COUNT = 3;
@@ -28,7 +27,7 @@ public class ProfileService extends Service {
      * Creates a new ProfileService instance.
      */
     public ProfileService() {
-        super(DEFAULT_BASE_URI);
+        super(ServiceRoot.getProfileURI());
     }
 
     /**

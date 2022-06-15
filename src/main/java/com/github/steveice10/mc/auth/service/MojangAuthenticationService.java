@@ -9,7 +9,6 @@ import java.net.URI;
 import java.util.*;
 
 public class MojangAuthenticationService extends AuthenticationService {
-    private static final URI DEFAULT_BASE_URI = URI.create("https://authserver.mojang.com/");
     private static final URI MSA_MIGRATION_CHECK_URI = URI.create("https://api.minecraftservices.com/rollout/v1/msamigration");
     private static final String AUTHENTICATE_ENDPOINT = "authenticate";
     private static final String REFRESH_ENDPOINT = "refresh";
@@ -31,7 +30,7 @@ public class MojangAuthenticationService extends AuthenticationService {
      * @param clientToken Client token to use when making authentication requests.
      */
     public MojangAuthenticationService(String clientToken) {
-        super(DEFAULT_BASE_URI);
+        super(ServiceRoot.getAuthURI());
 
         if(clientToken == null) {
             throw new IllegalArgumentException("ClientToken cannot be null.");
@@ -143,6 +142,8 @@ public class MojangAuthenticationService extends AuthenticationService {
         if (!this.loggedIn) {
             throw new RequestException("Cannot check migration eligibility while not logged in.");
         }
+        if (!ServiceRoot.canMigrate())
+            return false;
 
         Map<String, String> authHeaders = Collections.singletonMap("Authorization", String.format("Bearer %s", this.accessToken));
         MsaMigrationCheckResponse response = HTTP.makeRequest(this.getProxy(), MSA_MIGRATION_CHECK_URI, null, MsaMigrationCheckResponse.class, authHeaders);
