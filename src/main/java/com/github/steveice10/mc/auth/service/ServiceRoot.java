@@ -30,6 +30,7 @@ public class ServiceRoot {
     private static URI sessionUri = DEFAULT_SESSION_URI;
     private static String[] whitelistedDomains = DEFAULT_WHITELISTED_DOMAINS;
     private static PublicKey signatureKey;
+    private static Proxy proxy;
 
     static {
         try (InputStream in = SessionService.class.getResourceAsStream("/yggdrasil_session_pubkey.der")) {
@@ -52,6 +53,8 @@ public class ServiceRoot {
     public static boolean canMigrate() { return rootUri == null; }
     public static String[] getWhitelistedDomains() { return whitelistedDomains; }
     public static PublicKey getSignatureKey() { return signatureKey; }
+    public static Proxy getProxy() { return proxy; }
+    public static void setProxy(Proxy proxy) { ServiceRoot.proxy = proxy; }
 
     /**
      * Register Yggdrasil service root URI.
@@ -67,7 +70,7 @@ public class ServiceRoot {
             ServiceRoot.profileUri = rootUri.resolve("api/profiles/");
             ServiceRoot.sessionUri = rootUri.resolve("sessionserver/session/minecraft/");
 
-            ServiceMetaData metaData = HTTP.makeRequest(Proxy.NO_PROXY, rootUri, null, ServiceRoot.ServiceMetaData.class);
+            ServiceMetaData metaData = HTTP.makeRequest(getProxy(), rootUri, null, ServiceRoot.ServiceMetaData.class);
             List<String> domains = new ArrayList<>();
             domains.addAll(Arrays.asList(DEFAULT_WHITELISTED_DOMAINS));
             domains.addAll(Arrays.asList(metaData.skinDomains));

@@ -24,6 +24,7 @@ public class MinecraftAuthTest {
     private static final Proxy PROXY = Proxy.NO_PROXY;
 
     public static void main(String[] args) throws RequestException {
+        ServiceRoot.setProxy(PROXY);
         ServiceRoot.registerYggdrasilServiceRoot(AUTHLIB_INJECTION_URI);
         profileLookup();
         auth();
