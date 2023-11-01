@@ -126,7 +126,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             HttpURLConnection connection = HTTP.createUrlConnection(this.getProxy(), MS_LOGIN_ENDPOINT);
             connection.setDoInput(true);
             try (InputStream in = connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()) {
-                cookies = String.join("; ", connection.getHeaderFields().get("Set-Cookie"));
+                cookies = String.join("; ", connection.getHeaderFields().getOrDefault("Set-Cookie", Collections.emptyList()));
                 String body = inputStreamToString(in);
                 Matcher m = PPFT_PATTERN.matcher(body);
                 if (m.find()) {
