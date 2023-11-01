@@ -21,9 +21,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MsaAuthenticationService extends AuthenticationService {
+    private static final String LIVE_OAUTH20_CLIENT_ID = "00000000402b5328";
     private static final URI MS_CODE_ENDPOINT = URI.create("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode");
     private static final URI MS_CODE_TOKEN_ENDPOINT = URI.create("https://login.microsoftonline.com/consumers/oauth2/v2.0/token");
-    private static final URI MS_LOGIN_ENDPOINT = URI.create("https://login.live.com/oauth20_authorize.srf?redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=code&locale=en&client_id=00000000402b5328");
+    private static final URI MS_LOGIN_ENDPOINT = URI.create("https://login.live.com/oauth20_authorize.srf?redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=code&locale=en&client_id=" + LIVE_OAUTH20_CLIENT_ID);
     private static final URI MS_TOKEN_ENDPOINT = URI.create("https://login.live.com/oauth20_token.srf");
     private static final URI XBL_AUTH_ENDPOINT = URI.create("https://user.auth.xboxlive.com/user/authenticate");
     private static final URI XSTS_AUTH_ENDPOINT = URI.create("https://xsts.auth.xboxlive.com/xsts/authorize");
@@ -114,10 +115,10 @@ public class MsaAuthenticationService extends AuthenticationService {
         return getLoginResponseFromToken("d=" + response.access_token);
     }
 
-    private McLoginResponse getLoginResponseFromCreds(String username, String password) throws RequestException {
+    private McLoginResponse getLoginResponseFromCreds() throws RequestException {
         // TODO: Migrate alot of this to {@link HTTP}
 
-        String cookie = "";
+        String cookies = "";
         String PPFT = "";
         String urlPost = "";
 
@@ -125,7 +126,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             HttpURLConnection connection = HTTP.createUrlConnection(this.getProxy(), MS_LOGIN_ENDPOINT);
             connection.setDoInput(true);
             try (InputStream in = connection.getResponseCode() == 200 ? connection.getInputStream() : connection.getErrorStream()) {
-                cookie = connection.getHeaderField("set-cookie");
+                cookies = String.join("; ", connection.getHeaderFields().get("Set-Cookie"));
                 String body = inputStreamToString(in);
                 Matcher m = PPFT_PATTERN.matcher(body);
                 if (m.find()) {
@@ -145,7 +146,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             throw new ServiceUnavailableException("Could not make request to '" + MS_LOGIN_ENDPOINT + "'.", e);
         }
 
-        if (cookie.isEmpty() || PPFT.isEmpty() || urlPost.isEmpty()) {
+        if (cookies.isEmpty() || PPFT.isEmpty() || urlPost.isEmpty()) {
             throw new RequestException("Invalid response from '" + MS_LOGIN_ENDPOINT + "' missing one or more of cookie, PPFT or urlPost");
         }
 
@@ -165,7 +166,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             HttpURLConnection connection = HTTP.createUrlConnection(this.getProxy(), URI.create(urlPost));
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
             connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
-            connection.setRequestProperty("Cookie", cookie);
+            connection.setRequestProperty("Cookie", cookies);
 
             connection.setDoInput(true);
             connection.setDoOutput(true);
@@ -190,7 +191,7 @@ public class MsaAuthenticationService extends AuthenticationService {
             throw new ServiceUnavailableException("Could not make request to '" + urlPost + "'.", e);
         }
 
-        MsTokenRequest request = new MsTokenRequest(clientId, code);
+        MsTokenRequest request = new MsTokenRequest(LIVE_OAUTH20_CLIENT_ID, code);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
         this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken(response.access_token);
@@ -297,7 +298,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
         McLoginResponse response = null;
         if(password) {
-            response = getLoginResponseFromCreds(this.username, this.password);
+            response = getLoginResponseFromCreds();
         } else if (refresh) {
             response = getLoginResponseFromRefreshToken();
         } else if(!device) {
