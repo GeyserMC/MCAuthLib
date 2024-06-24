@@ -38,6 +38,7 @@ public class MsaAuthenticationService extends AuthenticationService {
 
     private String deviceCode;
     private String clientId;
+    private String clientSecret;
     private String refreshToken;
 
     public MsaAuthenticationService(String clientId) {
@@ -68,6 +69,14 @@ public class MsaAuthenticationService extends AuthenticationService {
      */
     public void setRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
+    }
+
+    /**
+     * Sets a clientSecret if you needed to be authenticated with a secret
+     * @param clientSecret the clientSecret to be set
+     */
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
     }
 
     /**
@@ -109,6 +118,8 @@ public class MsaAuthenticationService extends AuthenticationService {
             throw new InvalidCredentialsException("Invalid device code.");
         }
         MsCodeTokenRequest request = new MsCodeTokenRequest(this.clientId, this.deviceCode);
+        if(this.clientSecret != null)
+            request.setClient_secret(this.clientSecret);
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_CODE_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
         this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken("d=" + response.access_token);
@@ -190,7 +201,12 @@ public class MsaAuthenticationService extends AuthenticationService {
             throw new ServiceUnavailableException("Could not make request to '" + urlPost + "'.", e);
         }
 
-        MsTokenRequest request = new MsTokenRequest(clientId, code);
+        MsTokenRequest request;
+        if(this.clientSecret != null){
+            request =  new MsTokenRequest(clientId, code, this.clientSecret);
+        }else{
+            request =  new MsTokenRequest(clientId, code);
+        }
         MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, request.toMap(), MsTokenResponse.class);
         this.refreshToken = response.refresh_token;
         return getLoginResponseFromToken(response.access_token);
@@ -218,8 +234,12 @@ public class MsaAuthenticationService extends AuthenticationService {
         if (this.refreshToken == null) {
             throw new InvalidCredentialsException("Invalid refresh token.");
         }
-
-        MsTokenResponse response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken).toMap(), MsTokenResponse.class);
+        MsTokenResponse response;
+        if(clientSecret.isEmpty()){
+            response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken).toMap(), MsTokenResponse.class);
+        }else{
+            response = HTTP.makeRequestForm(this.getProxy(), MS_TOKEN_ENDPOINT, new MsRefreshRequest(clientId, refreshToken, clientSecret).toMap(), MsTokenResponse.class);
+        }
         accessToken = response.access_token;
         refreshToken = response.refresh_token;
 
@@ -287,6 +307,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         boolean device = this.deviceCode != null && !this.deviceCode.isEmpty();
         boolean password = this.password != null && !this.password.isEmpty();
         boolean refresh = this.refreshToken != null && !this.refreshToken.isEmpty();
+        boolean secret = this.clientSecret != null && !this.clientSecret.isEmpty();
 
         if(!token && !password && !refresh) {
             throw new InvalidCredentialsException("Invalid password or access token.");
@@ -298,6 +319,8 @@ public class MsaAuthenticationService extends AuthenticationService {
         McLoginResponse response = null;
         if(password) {
             response = getLoginResponseFromCreds(this.username, this.password);
+        }else if(secret && refresh){
+            response = getLoginResponseFromRefreshToken();
         } else if (refresh) {
             response = getLoginResponseFromRefreshToken();
         } else if(!device) {
@@ -379,11 +402,16 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String grant_type;
         private String client_id;
         private String device_code;
+        private String client_secret;
 
         protected MsCodeTokenRequest(String clientId, String deviceCode) {
             this.grant_type = "urn:ietf:params:oauth:grant-type:device_code";
             this.client_id = clientId;
             this.device_code = deviceCode;
+        }
+
+        public void setClient_secret(String client_secret) {
+            this.client_secret = client_secret;
         }
 
         public Map<String, String> toMap() {
@@ -392,7 +420,8 @@ public class MsaAuthenticationService extends AuthenticationService {
             map.put("grant_type", grant_type);
             map.put("client_id", client_id);
             map.put("device_code", device_code);
-
+            if(client_secret != null)
+                map.put("client_secret", client_secret);
             return map;
         }
     }
@@ -403,6 +432,7 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String grant_type;
         private String redirect_uri;
         private String scope;
+        private String client_secret;
 
         protected MsTokenRequest(String clientId, String code) {
             this.client_id = clientId;
@@ -410,6 +440,15 @@ public class MsaAuthenticationService extends AuthenticationService {
             this.grant_type = "authorization_code";
             this.redirect_uri = "https://login.live.com/oauth20_desktop.srf";
             this.scope = "service::user.auth.xboxlive.com::MBI_SSL";
+        }
+
+        protected MsTokenRequest(String clientId, String code, String client_secret) {
+            this.client_id = clientId;
+            this.code = code;
+            this.grant_type = "authorization_code";
+            this.redirect_uri = "https://login.live.com/oauth20_desktop.srf";
+            this.scope = "service::user.auth.xboxlive.com::MBI_SSL";
+            this.client_secret = client_secret;
         }
 
         public Map<String, String> toMap() {
@@ -420,8 +459,10 @@ public class MsaAuthenticationService extends AuthenticationService {
             map.put("grant_type", grant_type);
             map.put("redirect_uri", redirect_uri);
             map.put("scope", scope);
-
-            return map;
+            if(client_secret != null){
+                map.put("client_secret", client_secret);
+            }
+                return map;
         }
     }
 
@@ -429,6 +470,15 @@ public class MsaAuthenticationService extends AuthenticationService {
         private String client_id;
         private String refresh_token;
         private String grant_type;
+        private String client_secret;
+
+        protected MsRefreshRequest(String clientId, String refreshToken, String client_secret) {
+            this.client_id = clientId;
+            this.refresh_token = refreshToken;
+            this.grant_type = "refresh_token";
+            this.client_secret = client_secret;
+
+        }
 
         protected MsRefreshRequest(String clientId, String refreshToken) {
             this.client_id = clientId;
@@ -442,6 +492,8 @@ public class MsaAuthenticationService extends AuthenticationService {
             map.put("client_id", client_id);
             map.put("refresh_token", refresh_token);
             map.put("grant_type", grant_type);
+            if(client_secret != null)
+                 map.put("client_secret", this.client_secret);
 
             return map;
         }
