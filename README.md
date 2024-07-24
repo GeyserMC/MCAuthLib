@@ -1,3 +1,5 @@
+# This project is no longer maintained. Please use [MinecraftAuth](https://github.com/RaphiMC/MinecraftAuth) instead.
+
 # MCAuthLib
 MCAuthLib is a library for authentication with Minecraft accounts. It is used in projects such as MCProtocolLib to handle authenticating users.
 
