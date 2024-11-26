@@ -87,7 +87,10 @@ public class MojangAuthenticationService extends AuthenticationService {
         }
 
         this.accessToken = response.accessToken;
-        this.profiles = response.availableProfiles != null ? Arrays.asList(response.availableProfiles) : Collections.<GameProfile>emptyList();
+        this.profiles.clear();
+        if (response.availableProfiles != null) {
+            profiles.addAll(Arrays.asList(response.availableProfiles));
+        }
         this.selectedProfile = response.selectedProfile;
 
         this.properties.clear();
